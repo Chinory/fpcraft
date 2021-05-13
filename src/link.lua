@@ -830,7 +830,7 @@ local function newLink(name, key, hw)
     -- command
     cmdcnt = 0,
     cmdack = {},
-    cmdhist = {},
+    cmdhist = {}
   }
   self.checker.link = self
   self.finder.link = self
@@ -882,32 +882,5 @@ end
 local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Link = Link, new = newLink, of = managed}
 
 function M.main() while true do receive() end end
-
-function M.main_cmd()
-  while true do
-    local _, name = os.pullEvent("link.CmdReq")
-    local self = managed[name]
-    if self then
-      local task = remove(self.cmdqueue, 1)
-      while task do
-        local code, rex = loadstring(task[3])
-        if code then
-          ez.l = self
-          local res = {pcall(setfenv(code, ez))}
-          ez.l = nil
-          local ok = table.remove(res, 1)
-          if ok then
-            self:send(task[1], self.msg.CmdRes, u16bes(task[2]) .. utils.ser(res))
-          else
-            self:send(task[1], self.msg.CmdErr, u16bes(task[2]) .. res[1])
-          end
-        else
-          self:send(task[1], self.msg.CmdBad, u16bes(task[2]) .. rex)
-        end
-        task = remove(self.cmdqueue, 1)
-      end
-    end
-  end
-end
 
 return M
