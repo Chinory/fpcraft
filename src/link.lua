@@ -701,16 +701,24 @@ function Link.clearLog(self, ...)
 end
 
 function Link.watch(self, ...)
+  local watching = self.watching
   for _, id in ipairs({...}) do
-    self.watching[id] = true
-    self:send(id, self.msg.LogWatch)
+    local lv = (watching[id] or 0) + 1
+    if lv == 1 then
+      self:send(id, self.msg.LogWatch)
+    end
+    watching[id] = lv
   end
 end
 
 function Link.unwatch(self, ...)
+  local watching = self.watching
   for _, id in ipairs({...}) do
-    self.watching[id] = nil
-    self:send(id, self.msg.LogUnwatch)
+    local lv = (watching[id] or 0) - 1
+    if lv == 0 then
+      self:send(id, self.msg.LogUnwatch)
+    end
+    watching[id] = lv
   end
 end
 
