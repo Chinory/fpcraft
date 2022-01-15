@@ -18,7 +18,7 @@ local bxor = bit32.bxor
 local gtime = os.time
 local clock = os.clock
 local epoch0 = os.epoch
-local EPOCH = 1617078887611
+local EPOCH = 1642237830090
 local function epoch() return epoch0("utc") - EPOCH end
 
 ------- Crypto ------------------------------
@@ -423,15 +423,27 @@ function Link.kill(self, id)
   self.watching[id] = nil
 end
 
-function Link.close(self, id)
-  local kss = self.kstx[id]
-  self:kill(id)
-  if not kss then return end
+local function byebye(self, id, kss)
   local ks = rc4_load(kss)
   local tch = self.idch(id)
   local mch = self.idch(self.id)
   local pkg = wep_pkg(WEP_LNK, self.name, ks, self.msg.ConnClose, tch, mch)
   self.hws(tch, mch, pkg)
+end
+
+function Link.close(self, id)
+  local kss = self.kstx[id]
+  self:kill(id)
+  if kss then byebye(self, id, kss) end
+end
+
+function Link.closeAll(self)
+  local kstx = self.kstx
+  self.kstx = {}
+  for id, kss in pairs(kstx) do
+    self:kill(id)
+    byebye(self, id, kss)
+  end
 end
 
 ------- ConnClose Handler ------------------------------------

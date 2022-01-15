@@ -63,36 +63,22 @@ end
 -- end
 
 -- Link Instance
-local lnk = link.new("test", "test")
-lnk.peer = {true, true, true, true}
+local lnk = link.new("a", "a")
+local peer = {}
+for i = 1, 16 do
+  peer[i] = true
+end
+lnk.peer = peer
+
+function ez.reboot()
+  lnk:closeAll()
+  os.reboot()
+end
+
 if lnk.hw.open then
   lnk.hw.open(ID)
   lnk.hw.open(65535)
 end
-
-local function login_main()
-  local s = ""
-  while true do
-    term.clear()
-    term.setCursorPos(1, 1)
-    tui.print("Raild Server 1.0")
-    tui.write(s)
-    s = ""
-    local name = tui.read("> UserName: ")
-    local key = tui.read("> Password: ", "*")
-    local ln = link.of[name]
-    if ln and ln.key == key then
-      ez.l = ln
-      ln.showlog = true
-      term_main(true)
-      ln.showlog = false
-    else
-      os.sleep(3)
-      s = " Wrong username or password\n"
-    end
-  end
-end
-
 
 -- proc.create(main_kill)
 proc.create(link.main)
@@ -103,22 +89,39 @@ if turtle.fake then
   proc.create(term_main)
   ez.l = lnk
   tui.print("Raild Client 1.0")
-  return proc.main()
+else
+  proc.create(inv.main)
+  proc.create(function()
+    local s = ""
+    while true do
+      term.clear()
+      term.setCursorPos(1, 1)
+      tui.print("Raild Server 1.0")
+      tui.write(s)
+      s = ""
+      local name = tui.read("> UserName: ")
+      local key = tui.read("> Password: ", "*")
+      local ln = link.of[name]
+      if ln and ln.key == key then
+        ez.l = ln
+        ln.showlog = true
+        term_main(true)
+        ln.showlog = false
+      else
+        os.sleep(3)
+        s = " Wrong username or password\n"
+      end
+    end
+  end)
+  -- JOIN link AND inv
+  table.insert(lnk.onConnected, function(self, id) --
+    return self:send(id, self.msg.InvData, utils.ser(inv.mySum()))
+  end)
+  table.insert(inv.onUpdate, function()
+    local t = inv.mySum()
+    return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
+  end)
+  table.insert(lnk.finder.ids, 1)
 end
-
-proc.create(inv.main)
-
-proc.create(login_main)
-
-table.insert(lnk.onConnected, function(self, id) --
-  return self:send(id, self.msg.InvData, utils.ser(inv.mySum()))
-end)
-
-table.insert(inv.onUpdate, function()
-  local t = inv.mySum()
-  return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
-end)
-
-table.insert(lnk.finder.ids, 3)
 
 return proc.main()
