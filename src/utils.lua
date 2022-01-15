@@ -402,6 +402,39 @@ local function des(str)
   end
 end
 
+local function prettyInts(ints)
+  if #ints == 0 then return "" end
+  ints = {unpack(ints)}
+  table.sort(ints)
+  local res = {}
+  local s = remove(ints,1)
+  local e
+  for _, x in ipairs(ints) do
+    if e then
+      if x - e == 1 then
+        e = x
+      else
+        insert(res, s .. (e - s == 1 and ',' or '..') .. e)
+        s = x
+        e = nil
+      end
+    else
+      if x - s == 1 then
+        e = x
+      else
+        insert(res, s)
+        s = x
+      end
+    end
+  end
+  if e then
+    insert(res, s .. (e - s == 1 and ',' or '..') .. e)
+  else
+    insert(res, s)
+  end
+  return concat(res,',')
+end
+
 ---- event ----
 
 local mt_Event = {__call = function(self, ...) for _, f in ipairs(self) do f(...) end end}
@@ -519,6 +552,7 @@ local M = {
   F = false,
   ser = ser,
   des = des,
+  prettyInts = prettyInts,
   -- event --
   asEvent = function(t) return setmetatable(t, mt_Event) end,
   -- task --

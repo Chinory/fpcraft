@@ -510,7 +510,7 @@ Link:reg({
 
 ------- Command Sender ------------------------------------
 
-local function _sendCmd(self, code, ids, idss)
+local function _sendCmd(self, code, ids)
   local cnt = self.cmdcnt + 1
   local body = u16bes(cnt) .. code
   for _, id in ipairs(ids) do --
@@ -518,7 +518,6 @@ local function _sendCmd(self, code, ids, idss)
   end
   self.cmdcnt = cnt
   self.cmdhist[cnt] = code
-  -- self:log("req:" .. cnt .. " #" .. idss)
   return cnt
 end
 
@@ -530,7 +529,7 @@ function Link.cmd(self, code, ids)
   elseif type(ids) ~= "table" then
     return nil, "bad ids type"
   end
-  return _sendCmd(self, code, ids, concat(ids, ","))
+  return _sendCmd(self, code, ids)
 end
 
 -- Remote Term
@@ -542,13 +541,11 @@ function Link.tel(self, ids)
   elseif type(ids) ~= "table" then
     return nil, "bad ids type"
   end
-  local idss = concat(ids, ",")
-
-  local prefix = "#" .. idss .. ">"
+  local prefix = "#" .. utils.prettyInts(ids) .. ">"
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.lua_complete)
     if code == "" then break end
-    _sendCmd(self, code, ids, idss)
+    _sendCmd(self, code, ids)
   end
 end
 
