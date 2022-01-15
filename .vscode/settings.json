@@ -1,0 +1,6 @@
+{
+    "lua.debug.settings.luaVersion": "5.1",
+    "lua.debug.settings.path": [
+        "src\\?.lua"
+    ]
+}

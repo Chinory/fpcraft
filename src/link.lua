@@ -2,6 +2,7 @@ local tui = require("tui")
 local utils = require("utils")
 local timer = require("timer")
 local proc = require("proc")
+local stat = require("stat")
 local enc = string.char
 local dec = string.byte
 local sub = string.sub
@@ -510,9 +511,10 @@ Link:reg({
 
 ------- Command Sender ------------------------------------
 
-local function _sendCmd(self, code, ids)
+local function sendCmd(self, code, ids)
   local cnt = self.cmdcnt + 1
-  local body = u16bes(cnt) .. code
+  local usedCode =  sub(code,-1) == ')' and 'return ' .. code or code -- function tricks
+  local body = u16bes(cnt) .. usedCode
   for _, id in ipairs(ids) do --
     self:send(id, self.msg.CmdReq, body)
   end
@@ -529,7 +531,7 @@ function Link.cmd(self, code, ids)
   elseif type(ids) ~= "table" then
     return nil, "bad ids type"
   end
-  return _sendCmd(self, code, ids)
+  return sendCmd(self, code, ids)
 end
 
 -- Remote Term
@@ -545,7 +547,7 @@ function Link.tel(self, ids)
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.lua_complete)
     if code == "" then break end
-    _sendCmd(self, code, ids)
+    sendCmd(self, code, ids)
   end
 end
 
@@ -563,25 +565,28 @@ function Link.ssh(self, ids)
   self:tel(ids)
   for _, id in ipairs(ids) do self:unwatch(id) end
 end
-
 ------- Command Handler -----------------------------------
 
 local function createCmdTask(self, id, cid, code)
   return proc.create(function()
     local fn, rex = loadstring(code)
+    local status, result
     if fn then
       ez.l = self
       local res = {pcall(setfenv(fn, ez))}
       ez.l = nil
-      local ok = remove(res, 1)
-      if ok then
-        self:send(id, self.msg.CmdRes, u16bes(cid) .. utils.ser(res))
+      if remove(res, 1) then
+        status = '\1'
+        result = utils.ser(res)
       else
-        self:send(id, self.msg.CmdErr, u16bes(cid) .. res[1])
+        status = '\2'
+        result = res[1]
       end
     else
-      self:send(id, self.msg.CmdBad, u16bes(cid) .. rex)
+      status = '\3'
+      result = rex
     end
+    self:send(id, self.msg.CmdRes, u16bes(cid) .. status .. result)
   end)
 end
 
@@ -614,55 +619,81 @@ Link:reg({
   end
 })
 
+local CMDRES_ST = {"OK","Err","Bad"}
+local CMDRES_PO = {3,1,2}
+
 Link:reg({
   name = "CmdRes",
   mode = WEP_LNK,
-  min = 2,
-  max = 0x100002,
+  min = 3,
+  max = 0x100003,
   handle = function(self, id, body, dist, ksrx)
     local cid = besu16(sub(body, 1, 2))
-    local result = sub(body, 3)
+    local status = CMDRES_ST[dec(body,3,3)] or "Unk"
+    local result = sub(body, 4)
     -- os.queueEvent("link.CmdRes", self.name, cid)
     self:heard(id, dist, ksrx)
-    self:log("Res:" .. cid .. " #" .. id .. " " .. result)
-  end
-})
-
-Link:reg({
-  name = "CmdErr",
-  mode = WEP_LNK,
-  min = 2,
-  max = 0x100002,
-  handle = function(self, id, body, dist, ksrx)
-    local cid = besu16(sub(body, 1, 2))
-    local result = sub(body, 3)
-    os.queueEvent("link.CmdErr", self.name, cid)
-    self:heard(id, dist, ksrx)
-    self:log("Err:" .. cid .. " #" .. id .. " " .. result)
-  end
-})
-
-Link:reg({
-  name = "CmdBad",
-  mode = WEP_LNK,
-  min = 2,
-  max = 0x100002,
-  handle = function(self, id, body, dist, ksrx)
-    local cid = besu16(sub(body, 1, 2))
-    local result = sub(body, 3)
-    os.queueEvent("link.CmdBad", self.name, cid)
-    self:heard(id, dist, ksrx)
-    self:log("Bad:" .. cid .. " #" .. id .. " " .. result)
+    -- self:log("$" .. cid .. " #" .. id .. " " .. status .. ": " .. result)
+    self:report("$"..cid, {status,result}, id)
   end
 })
 
 ------- Log Sender ------------------------------------
 
 function Link.log(self, ...)
-  local s = concat({self.id, floor(gtime() * 10), ...}, " ")
+  -- local s = concat({'#'..self.id, floor(gtime() * 10), ...}, " ")
+  local s = concat({self.id, ...}, " ")
   self.logs:write(s)
   for id in pairs(self.watcher) do self:send(id, self.msg.LogData, s) end
-  if self.showlog then return tui.print(s) end
+  if self.showlog then tui.print(s) end
+end
+
+local function rawadd(t,k,v)
+  return rawset((rawget(t,k) or 0) + v)
+end
+
+local function recur_print(callback,tbl,depth,pathstr)
+  if depth > 0 then
+    for k, v in pairs(tbl) do
+      recur_print(callback,v, depth - 1, pathstr..' '..k)
+    end
+  else
+    callback(pathstr..' '..utils.prettyInts(tbl))
+  end
+end
+
+
+local function report_timer(t)
+  t.life = t.life - 1
+  if t.life < 1 then
+    t.link.reports[t.topic] = nil
+    recur_print(function(s)t.link:log(s)end,t.data,t.depth,t.topic)
+  else
+    t:start()
+  end
+end
+
+function Link.report(self, topic, braches, leaf)
+  local report = self.reports[topic]
+  if not report then
+    report = timer.start({
+      ontimer = report_timer,
+      interval = 0.05,
+      link = self,
+      topic = topic,
+      depth = #braches,
+      data = stat.new(),
+      life = 2
+    })
+    self.reports[topic]=report
+  else
+    report.life = 2
+  end
+  local node = report.data
+  for _, v in ipairs(braches) do
+    node = node[v]
+  end
+  table.insert(node, leaf)
 end
 
 function Link.clearLog(self, ...)
@@ -836,6 +867,7 @@ local function newLink(name, key, hw)
     showlog = false,
     watcher = utils.asSet({}),
     watching = utils.asSet({}),
+    reports = {},
     -- command
     cmdcnt = 0,
     cmdack = {},

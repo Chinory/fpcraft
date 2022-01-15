@@ -38,6 +38,7 @@ local function term_main(exitable)
     else
       table.insert(history, str)
       if #history > 31 then for _ = 1, 12 do table.remove(history) end end
+      if string.sub(str,-1) == ')' then str = 'return ' .. str end -- function tricks
       local code = loadstring(str)
       if code then
         local res = {pcall(setfenv(code, ez))}
@@ -63,7 +64,7 @@ end
 -- end
 
 -- Link Instance
-local lnk = link.new("a", "a")
+local lnk = link.new("a3", "a")
 local peer = {}
 for i = 1, 16 do
   peer[i] = true
