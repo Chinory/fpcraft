@@ -110,11 +110,11 @@ end
 
 local M = {
   -- table --
+  find = function(t, x) for i, v in ipairs(t) do if v == x then return i end end end,
   keys = keys,
   shrink = shrink,
   extend = extend,
   assign = assign,
-  indexOf = function(t, x) for i, v in ipairs(t) do if v == x then return i end end end,
   -- func --
   id = function(val) return val end,
   of = function(val) return function(new)
