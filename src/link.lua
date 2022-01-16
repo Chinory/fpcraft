@@ -882,9 +882,9 @@ local function newLink(name, key, hw)
     dist = {},
     checker = timer.start({
       ontimer = checker_timer,
-      interval = 6,
-      checkTime = 12,
-      closeTime = 18
+      interval = 2,
+      checkTime = 6,
+      closeTime = 12
     }),
     finder = timer.start({ontimer = finder_timer, interval = 10, ids = {}}),
     -- logs
