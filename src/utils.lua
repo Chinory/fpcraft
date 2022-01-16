@@ -402,37 +402,52 @@ local function des(str)
   end
 end
 
-local function prettyInts(ints)
-  if #ints == 0 then return "" end
-  ints = {unpack(ints)}
-  table.sort(ints)
-  local res = {}
-  local s = remove(ints,1)
-  local e
-  for _, x in ipairs(ints) do
-    if e then
+local function prettySortedInts(i)
+  local o = {}
+  local s, e
+  local function flush()
+    if e - s == 1 then
+      insert(o, s)
+      insert(o, e)
+    else
+      insert(o, s .. '..' .. e)
+    end
+  end
+  local function clear()
+    if s then
+      if e then
+        flush()
+        e = nil
+      else
+        insert(o, s)
+      end
+      s = nil
+    end
+  end
+  for _, x in ipairs(i) do
+    if not x then
+      clear()
+    elseif e then
       if x - e == 1 then
         e = x
       else
-        insert(res, s .. (e - s == 1 and ',' or '..') .. e)
+        flush()
         s = x
         e = nil
       end
-    else
+    elseif s then
       if x - s == 1 then
         e = x
       else
-        insert(res, s)
+        insert(o, s)
         s = x
       end
+    else
+      s = x
     end
   end
-  if e then
-    insert(res, s .. (e - s == 1 and ',' or '..') .. e)
-  else
-    insert(res, s)
-  end
-  return concat(res,',')
+  clear()
+  return concat(o, ',')
 end
 
 ---- event ----
@@ -552,7 +567,7 @@ local M = {
   F = false,
   ser = ser,
   des = des,
-  prettyInts = prettyInts,
+  prettySortedInts = prettySortedInts,
   -- event --
   asEvent = function(t) return setmetatable(t, mt_Event) end,
   -- task --

@@ -543,7 +543,8 @@ function Link.tel(self, ids)
   elseif type(ids) ~= "table" then
     return nil, "bad ids type"
   end
-  local prefix = "#" .. utils.prettyInts(ids) .. ">"
+  table.sort(ids)
+  local prefix = "#" .. utils.prettySortedInts(ids) .. ">"
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.lua_complete)
     if code == "" then break end
@@ -561,9 +562,9 @@ function Link.ssh(self, ids)
     return nil, "bad ids type"
   end
 
-  for _, id in ipairs(ids) do self:watch(id) end
+  self:watch(unpack(ids))
   self:tel(ids)
-  for _, id in ipairs(ids) do self:unwatch(id) end
+  self:unwatch(unpack(ids))
 end
 ------- Command Handler -----------------------------------
 
@@ -658,7 +659,8 @@ local function recur_print(callback,tbl,depth,pathstr)
       recur_print(callback,v, depth - 1, pathstr..' '..k)
     end
   else
-    callback(pathstr..' '..utils.prettyInts(tbl))
+    table.sort(tbl)
+    callback(pathstr..' '..utils.prettySortedInts(tbl))
   end
 end
 
@@ -702,10 +704,12 @@ end
 
 function Link.watch(self, ...)
   local watching = self.watching
-  for _, id in ipairs({...}) do
+  local list = {...}
+  local msg = #list > 1 and self.msg.LogWatchQ or self.msg.LogWatch
+  for _, id in ipairs(list) do
     local lv = (watching[id] or 0) + 1
     if lv == 1 then
-      self:send(id, self.msg.LogWatch)
+      self:send(id, msg)
     end
     watching[id] = lv
   end
@@ -766,7 +770,20 @@ Link:reg({
     self:heard(id, dist, ksrx)
     if self.watcher[id] == nil then
       self.watcher[id] = true
-      return self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n"))
+      self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n"))
+    end
+  end
+})
+
+Link:reg({
+  name = "LogWatchQ",
+  mode = WEP_LNK,
+  min = 0,
+  max = 0,
+  handle = function(self, id, _, dist, ksrx)
+    self:heard(id, dist, ksrx)
+    if self.watcher[id] == nil then
+      self.watcher[id] = true
     end
   end
 })
