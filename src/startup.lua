@@ -45,9 +45,9 @@ local function term_main(exitable)
         local ok = table.remove(res, 1)
         local t = math.floor(os.time() * 10)
         if ok then
-          tui.print("- " .. t .. " OK " .. utils.ser(res))
+          tui.print(ID .. " " .. t .. " OK " .. utils.ser(res))
         else
-          tui.print("- " .. t .. " ERR " .. res[1])
+          tui.print(ID .. " " .. t .. " ERR " .. res[1])
         end
       end
     end
@@ -66,7 +66,7 @@ end
 -- Link Instance
 local lnk = link.new("a3", "a")
 local peer = {}
-for i = 1, 16 do
+for i = 1, 32 do
   peer[i] = true
 end
 lnk.peer = peer
@@ -76,7 +76,7 @@ function ez.reboot()
   os.reboot()
 end
 
-if lnk.hw.open then
+if lnk.hw.open then 
   lnk.hw.open(ID)
   lnk.hw.open(65535)
 end
@@ -122,7 +122,7 @@ else
     local t = inv.mySum()
     return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
   end)
-  table.insert(lnk.finder.ids, 1)
+  table.insert(lnk.finder.ids, 17)
 end
 
 return proc.main()
