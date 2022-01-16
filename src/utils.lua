@@ -108,35 +108,26 @@ end
 
 ---- export ----
 
+local function nop() end
+
 local M = {
-  -- table --
-  find = function(t, x) for i, v in ipairs(t) do if v == x then return i end end end,
-  keys = keys,
-  shrink = shrink,
-  extend = extend,
-  assign = assign,
-  -- func --
+  T = true, F = false, nop = nop,
   id = function(val) return val end,
   of = function(val) return function(new)
     if new == nil then return val end
     local old = val val = new return old
   end end,
-  map = map,
-  filter = filter,
-  curry = curry,
-  quote = quote,
-  partial = partial,
+  find = function(t, x) for i, v in ipairs(t) do if v == x then return i end end end,
+  keys = keys, shrink = shrink, extend = extend, assign = assign,
+  map = map, filter = filter, curry = curry, quote = quote, partial = partial,
   Src = function(f) return function() return f() end end,
   Dst = function(f) return function(...) f(...) end end,
   Isl = function(f) return function() f() end end,
-  nop = function() end,
-  -- flow --
   If = function(...) local tups = {...} return cond(tups) end,
   Do = function(...) local fn = {...} return function(...) for _, f in ipairs(fn) do f(...) end end end,
   For = function(n, f) return function(...) for _ = 1, n do f(...) end end end,
   While = function(x, f) return function(...) while (x()) do f(...) end end end,
   ABA = function(n, a, b) if n >= 1 then a() for _ = 2, n do b() a() end end end,
-  -- lang --
   Get = function(t, k) return function() return t[k] end end,
   Set = function(t, k) return function(v) t[k] = v end end,
   Eq = function(x, y) return function(...) return x(...) == y(...) end end,
@@ -145,8 +136,6 @@ local M = {
   Gt = function(x, y) return function(...) return x(...) > y(...) end end,
   Le = function(x, y) return function(...) return x(...) <= y(...) end end,
   Ge = function(x, y) return function(...) return x(...) >= y(...) end end,
-  T = true,
-  F = false,
 }
 
 ---- ring list ----
