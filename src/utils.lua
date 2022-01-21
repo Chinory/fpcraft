@@ -125,9 +125,19 @@ local M = {
   Isl = function(f) return function() f() end end,
   If = function(...) local it = {...} return function() return cond(it) end end,
   Do = function(...) local fn = {...} return function() for _, f in ipairs(fn) do f() end end end,
+  Do2 = function(a,b) return function() a() b() end end,
+  Do3 = function(a,b,c) return function() a() b() c() end end,
+  Do4 = function(a,b,c,d) return function() a() b() c() d() end end,
   For = function(n, f) return function(...) for _ = 1, n do f(...) end end end,
+  Re2 = function(f) return function() f() f() end end,
+  Re3 = function(f) return function() f() f() f() end end,
+  Re4 = function(f) return function() f() f() f() f() end end,
   While = function(x, f) return function(...) while (x()) do f(...) end end end,
   ABA = function(n, a, b) if n >= 1 then return function() a() for _ = 2, n do b() a() end end else return a end end,
+  TPV = function(f, a, b) return function() return f() end, function() if f == a then f = b else f = a end end end, -- three-port valve
+  TPVp = function(f, a, b) return function(...) return f(...) end, function() if f == a then f = b else f = a end end end,
+  TPVx = function(f, a, b) return function() return f() end, function(x) if x then f = x elseif f == a then f = b else f = a end end end,
+  TPVpx = function(f, a, b) return function(...) return f(...) end, function(x) if x then f = x elseif f == a then f = b else f = a end end end,
   Get = function(t, k) return function() return t[k] end end,
   Set = function(t, k) return function(v) t[k] = v end end,
   Eq = function(x, y) return function(...) return x(...) == y(...) end end,
@@ -382,6 +392,23 @@ function M.prettySortedInts(i)
   end
   clear()
   return concat(o, ',')
+end
+
+local lti1 = function(a, b) return a[1] < b[1] end
+
+function M.setMetaKVList(t, keyListName, valueListName)
+  local kv = {}
+  for k, v in pairs(t) do
+    insert(kv, {k, v})
+  end
+  table.sort(kv, lti1)
+  local ks = {}
+  local vs = {}
+  for _, p in ipairs(kv) do
+    insert(ks, p[1])
+    insert(vs, p[2])
+  end
+  return setmetatable(t, {__index = {[keyListName] = ks, [valueListName] = vs}})
 end
 
 return M
