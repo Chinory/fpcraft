@@ -1,4 +1,4 @@
-# fpcraft
+# fxcraft
 
 Base system for computers in the Minecraft mod cc-tweaked
 

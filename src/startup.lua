@@ -89,7 +89,7 @@ if turtle.fake then
   lnk.showlog = true
   proc.create(term_main)
   ez.l = lnk
-  tui.print("Raild Client 1.0")
+  tui.print("fxcraft Client 1.0")
 else
   proc.create(inv.main)
   proc.create(function()
@@ -97,7 +97,7 @@ else
     while true do
       term.clear()
       term.setCursorPos(1, 1)
-      tui.print("Raild Server 1.0")
+      tui.print("fxcraft Server 1.0")
       tui.write(s)
       s = ""
       local name = tui.read("> UserName: ")
