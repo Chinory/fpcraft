@@ -23,14 +23,13 @@ utils.assign(ez, act)
 utils.assign(ez, utils)
 
 
-
 -- local insert = table.insert
 
 
 -- Local Term
 local function term_main(exitable)
   local history = {}
-  local prefix = "[" .. ID .. ">"
+  local prefix = "<" .. ID .. ">"
   while true do
     local str = tui.read(prefix, nil, history, tui.lua_complete)
     if str == "" then
@@ -45,9 +44,9 @@ local function term_main(exitable)
         local ok = table.remove(res, 1)
         local t = math.floor(os.time() * 10)
         if ok then
-          tui.print(ID .. " " .. t .. " OK " .. utils.ser(res))
+          tui.print("@" .. ID .. " " .. t .. " OK " .. utils.ser(res))
         else
-          tui.print(ID .. " " .. t .. " ERR " .. res[1])
+          tui.print("@" .. ID .. " " .. t .. " ERR " .. res[1])
         end
       end
     end

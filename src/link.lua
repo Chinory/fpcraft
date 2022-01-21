@@ -200,6 +200,13 @@ function Link.reg(self, Msg)
   return i
 end
 
+function Link.reg2(self, name, mode, min, max, handle)
+  local i = #self.msg + 1
+  self.msg[name] = i
+  self.msg[i] = {name = name, mode = mode, min = min, max = max, handle = handle}
+  return i
+end
+
 function Link.post(self, ch, cls, body)
   local rch = self.idch(self.id)
   local ks = rc4_new(self.key)
@@ -287,7 +294,8 @@ local function lnrs_tmo(self)
   local key = self.id
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn Of #" .. self.id .. " Expr")
+    -- self.link:log("Conn Of" .. self.id .. " Expr")
+    self.link:report("Conn Expr", {}, self.id)
   end
 end
 
@@ -325,7 +333,8 @@ Link:reg({
       tkpubl = besu32(sub(body, 1, 4))
     })
 
-    self:log("Conn Of #" .. id .. " " .. rem_ms)
+    -- self:log("Conn Of #" .. id .. " " .. rem_ms)
+    self:report("Conn Of", {}, id)
 
     if peer then return self:accept(id) end
   end
@@ -407,7 +416,8 @@ Link:reg({
 
     self:saw(id, dist)
 
-    self:log("Conn Estb #" .. id)
+    -- self:log("Conn Estb #" .. id)
+    self:report("Conn Estb", {}, id)
 
     return self:onConnected(id)
   end
@@ -455,7 +465,8 @@ Link:reg({
   min = 0,
   max = 0,
   handle = function(self, id)
-    self:log("Conn Close #" .. id)
+    -- self:log("Conn Close #" .. id)
+    self:report("Conn Close", {}, id)
     return self:kill(id)
   end
 })
@@ -544,7 +555,7 @@ function Link.tel(self, ids)
     return nil, "bad ids type"
   end
   table.sort(ids)
-  local prefix = "#" .. utils.prettySortedInts(ids) .. ">"
+  local prefix = ">" .. utils.prettySortedInts(ids) .. ">"
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.lua_complete)
     if code == "" then break end
@@ -643,7 +654,7 @@ Link:reg({
 
 function Link.log(self, ...)
   -- local s = concat({'#'..self.id, floor(gtime() * 10), ...}, " ")
-  local s = concat({self.id, ...}, " ")
+  local s = "@" .. concat({self.id, ...}, " ")
   self.logs:write(s)
   for id in pairs(self.watcher) do self:send(id, self.msg.LogData, s) end
   if self.showlog then tui.print(s) end
@@ -685,12 +696,13 @@ function Link.report(self, topic, braches, leaf)
       topic = topic,
       depth = #braches,
       data = stat.new(),
-      life = 2
+      life = 4
     })
     self.reports[topic]=report
   else
-    report.life = 2
+    report.life = 4
   end
+  -- order bug
   local node = report.data
   for _, v in ipairs(braches) do
     node = node[v]
@@ -820,7 +832,8 @@ local function checker_timer(t)
   for id, time in pairs(self.seen) do
     time = now - time
     if time > t.closeTime then
-      self:log("Conn Lost #" .. id)
+      -- self:log("Conn Lost #" .. id)
+      self:report("Conn Lost", {}, id)
       self:close(id)
     elseif time > t.checkTime then
       self:send(id, self.msg.ConnCheck)
