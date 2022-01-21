@@ -93,16 +93,16 @@ end
 
 ---- flow ----
 
-local function cond(tups)
+local function cond(it) -- it: If Then
   local i = 1
-  while i < #tups do
-    if tups[i]() then
-      return tups[i + 1]()
+  while i < #it do
+    if it[i]() then
+      return it[i + 1]()
     end
     i = i + 2
   end
-  if i == #tups then
-    return tups[i]()
+  if i == #it then
+    return it[i]()
   end
 end
 
@@ -123,11 +123,11 @@ local M = {
   Src = function(f) return function() return f() end end,
   Dst = function(f) return function(...) f(...) end end,
   Isl = function(f) return function() f() end end,
-  If = function(...) local tups = {...} return cond(tups) end,
-  Do = function(...) local fn = {...} return function(...) for _, f in ipairs(fn) do f(...) end end end,
+  If = function(...) local it = {...} return function() return cond(it) end end,
+  Do = function(...) local fn = {...} return function() for _, f in ipairs(fn) do f() end end end,
   For = function(n, f) return function(...) for _ = 1, n do f(...) end end end,
   While = function(x, f) return function(...) while (x()) do f(...) end end end,
-  ABA = function(n, a, b) if n >= 1 then a() for _ = 2, n do b() a() end end end,
+  ABA = function(n, a, b) if n >= 1 then return function() a() for _ = 2, n do b() a() end end else return a end end,
   Get = function(t, k) return function() return t[k] end end,
   Set = function(t, k) return function(v) t[k] = v end end,
   Eq = function(x, y) return function(...) return x(...) == y(...) end end,
