@@ -89,7 +89,7 @@ local function rc4_crypt_str(ks, str)
   return enc(unpack(rc4_crypt(ks, {dec(str, 1, #str)})))
 end
 
-local function rc4_crypt_substr(ks, str, i, j)
+local function rc4_crypt_str2num(ks, str, i, j)
   local num = 0
   local x, y = ks[1], ks[2]
   local a, b
@@ -936,7 +936,7 @@ local function receive()
   local ci = n + 4
   local len = #pkg - ci
   if len < 0 then return end
-  local sum = rc4_crypt_substr(ks, pkg, n, n + 3)
+  local sum = rc4_crypt_str2num(ks, pkg, n, n + 3)
   local cls = rc4_crypt_byte(ks, dec(pkg, ci))
   local msg = self.msg[cls]
   if not msg or m ~= msg.mode or len < msg.min or len > msg.max then return end
