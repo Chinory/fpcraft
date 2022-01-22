@@ -186,26 +186,27 @@ end
 
 ------- Prototype ----------------------------------
 
-local Link = { --
-  onConnected = {},
-  chid = utils.id,
-  idch = utils.id,
-  msg = {}
+local mt_Msg = {
+  __newindex = function(t, k, v)
+    local i = #t + 1
+    rawset(t, k, i)
+    rawset(t, i, v)
+  end,
+  __tostring = function(t)
+    local list = {}
+    for i, v in ipairs(t) do list[i] = v.name end
+    return "{" .. concat(list, ",") .. "}"
+  end
 }
 
-function Link.reg(self, Msg)
-  local i = #self.msg + 1
-  self.msg[Msg.name] = i
-  self.msg[i] = Msg
-  return i
-end
+local Msg = setmetatable({}, mt_Msg)
 
-function Link.reg2(self, name, mode, min, max, handle)
-  local i = #self.msg + 1
-  self.msg[name] = i
-  self.msg[i] = {name = name, mode = mode, min = min, max = max, handle = handle}
-  return i
-end
+local Link = {chid = utils.id, idch = utils.id}
+
+local mt_Link = {
+  __index = Link,
+  __tostring = function(self) return "Link{" .. self.name .. "}" end
+}
 
 function Link.post(self, ch, cls, body)
   local rch = self.idch(self.id)
@@ -299,46 +300,43 @@ local function lnrs_tmo(self)
   end
 end
 
-Link:reg({
-  name = "ConnReq",
-  mode = WEP_DTG,
-  min = 10,
-  max = 10,
-  handle = function(self, id, body)
-    local peer = self.peer[id]
-    if peer == false then return end
+function Msg.ConnReq(self, id, body)
+  if #body ~= 10 then return end
 
-    local time = besu32(sub(body, 5, 8))
-    local duration = epoch() - time
-    if duration < 0 then return end
+  local peer = self.peer[id]
+  if peer == false then return end
 
-    local tmo_ms = besu16(sub(body, 9, 10))
-    local rem_ms = tmo_ms - duration
-    if rem_ms < 0 then return end
+  local time = besu32(sub(body, 5, 8))
+  local duration = epoch() - time
+  if duration < 0 then return end
 
-    local old = self.lnrs[id]
-    if old then
-      if old.accepted ~= nil or old.time >= time then return end
-      old:stop()
-    end
+  local tmo_ms = besu16(sub(body, 9, 10))
+  local rem_ms = tmo_ms - duration
+  if rem_ms < 0 then return end
 
-    local rem_s = rem_ms / 1000
-    self.lnrs[id] = timer.start({
-      ontimer = lnrs_tmo,
-      interval = rem_s,
-      link = self,
-      id = id,
-      time = time,
-      expire = clock() + rem_s,
-      tkpubl = besu32(sub(body, 1, 4))
-    })
-
-    -- self:log("Conn Of #" .. id .. " " .. rem_ms)
-    self:report("Conn Of", {}, id)
-
-    if peer then return self:accept(id) end
+  local old = self.lnrs[id]
+  if old then
+    if old.accepted ~= nil or old.time >= time then return end
+    old:stop()
   end
-})
+
+  local rem_s = rem_ms / 1000
+  self.lnrs[id] = timer.start({
+    ontimer = lnrs_tmo,
+    interval = rem_s,
+    link = self,
+    id = id,
+    time = time,
+    expire = clock() + rem_s,
+    tkpubl = besu32(sub(body, 1, 4))
+  })
+
+  -- self:log("Conn Of #" .. id .. " " .. rem_ms)
+  self:report("Conn Of", {}, id)
+
+  if peer then return self:accept(id) end
+end
+
 
 ------- ConnAcpt Sender --------------------------------------
 
@@ -362,66 +360,56 @@ end
 
 ------- ConnAcpt Handler -------------------------------------
 
-Link:reg({
-  name = "ConnAcpt",
-  mode = WEP_DTG,
-  min = 8,
-  max = 8,
-  handle = function(self, id, body, dist)
-    if self.seen[id] then return end
+function Msg.ConnAcpt(self, id, body, dist)
+  if #body ~= 8 then return end
+  if self.seen[id] then return end
 
-    local tkpubl = besu32(sub(body, 1, 4))
-    local lnrq = self.lnrq[tkpubl]
-    if not lnrq then return end
+  local tkpubl = besu32(sub(body, 1, 4))
+  local lnrq = self.lnrq[tkpubl]
+  if not lnrq then return end
 
-    local tch = self.idch(id)
-    local mch = self.idch(self.id)
-    local res = u32bes(nonce32()) .. sub(body, 5, 8)
-    local ks0 = rc4_new(self.key)
-    local pkg = wep_pkg(WEP_DTG, self.name, ks0, self.msg.ConnEstb, tch, mch, res)
-    local kss = rc4_save(ks0)
-    self.ksrx[id] = kss
-    self.kstx[id] = kss
+  local tch = self.idch(id)
+  local mch = self.idch(self.id)
+  local res = u32bes(nonce32()) .. sub(body, 5, 8)
+  local ks0 = rc4_new(self.key)
+  local pkg = wep_pkg(WEP_DTG, self.name, ks0, self.msg.ConnEstb, tch, mch, res)
+  local kss = rc4_save(ks0)
+  self.ksrx[id] = kss
+  self.kstx[id] = kss
 
-    self:saw(id, dist)
+  self:saw(id, dist)
 
-    self.hws(tch, mch, pkg)
+  self.hws(tch, mch, pkg)
 
-    self:log("Conn Acpt By #" .. id) -- , "After", floor((clock() - lnrq.clock) * 1000))
+  self:log("Conn Acpt By #" .. id) -- , "After", floor((clock() - lnrq.clock) * 1000))
 
-    return self:onConnected(id)
-  end
-})
+  self:onConnected(id)
+end
 
 ------- ConnEstb Handler ----------------------------------
 
-Link:reg({
-  name = "ConnEstb",
-  mode = WEP_DTG,
-  min = 8,
-  max = 262,
-  handle = function(self, id, body, dist, ksrx)
-    local res = self.lnrs[id]
-    if not res or not res.accepted then return end
+function Msg.ConnEstb(self, id, body, dist, ksrx)
+  if #body < 8 or #body > 262 then return end
+  local res = self.lnrs[id]
+  if not res or not res.accepted then return end
 
-    local tkpriv = besu32(sub(body, 5, 8))
-    if tkpriv ~= res.tkpriv then return end
+  local tkpriv = besu32(sub(body, 5, 8))
+  if tkpriv ~= res.tkpriv then return end
 
-    res:stop()
-    self.lnrs[id] = nil
+  res:stop()
+  self.lnrs[id] = nil
 
-    local kss = rc4_save(ksrx)
-    self.ksrx[id] = kss
-    self.kstx[id] = kss
+  local kss = rc4_save(ksrx)
+  self.ksrx[id] = kss
+  self.kstx[id] = kss
 
-    self:saw(id, dist)
+  self:saw(id, dist)
 
-    -- self:log("Conn Estb #" .. id)
-    self:report("Conn Estb", {}, id)
+  -- self:log("Conn Estb #" .. id)
+  self:report("Conn Estb", {}, id)
 
-    return self:onConnected(id)
-  end
-})
+  self:onConnected(id)
+end
 
 ------- ConnClose Sender -------------------------------------
 
@@ -459,23 +447,22 @@ end
 
 ------- ConnClose Handler ------------------------------------
 
-Link:reg({
-  name = "ConnClose",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id)
-    -- self:log("Conn Close #" .. id)
-    self:report("Conn Close", {}, id)
-    return self:kill(id)
-  end
-})
+
+function Msg.ConnClose(self, id)
+  -- self:log("Conn Close #" .. id)
+  self:report("Conn Close", {}, id)
+  return self:kill(id)
+end
 
 ------- ConnAlive Sender -----------------------------------
 
-function Link.hint(self, id) self:send(id, self.msg.ConnAlive, randstr3()) end
+function Link.hint(self, id)
+  self:send(id, self.msg.ConnAlive, randstr3())
+end
 
-function Link.claim(self) self:sendEach(self.msg.ConnAlive, randstr3) end
+function Link.claim(self)
+  self:sendEach(self.msg.ConnAlive, randstr3)
+end
 
 ------- ConnAlive Handler ----------------------------------
 
@@ -490,13 +477,9 @@ function Link.heard(self, id, dist, ks)
   self.ksrx[id] = rc4_save(ks)
 end
 
-Link:reg({
-  name = "ConnAlive",
-  mode = WEP_LNK,
-  min = 0,
-  max = 4,
-  handle = function(self, id, _, dist, ksrx) return self:heard(id, dist, ksrx) end
-})
+function Msg.ConnAlive(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+end
 
 ------- ConnCheck Sender -----------------------------------
 
@@ -509,16 +492,10 @@ end
 
 ------- ConnCheck Handler ----------------------------------
 
-Link:reg({
-  name = "ConnCheck",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id, _, dist, ksrx)
-    self:heard(id, dist, ksrx)
-    return self:hint(id)
-  end
-})
+function Msg.ConnCheck(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+  self:hint(id)
+end
 
 ------- Command Sender ------------------------------------
 
@@ -602,53 +579,40 @@ local function createCmdTask(self, id, cid, code)
   end)
 end
 
-Link:reg({
-  name = "CmdReq",
-  mode = WEP_LNK,
-  min = 2,
-  max = 0x100002,
-  handle = function(self, id, body, dist, ksrx)
-    local cid = besu16(sub(body, 1, 2))
-    local code = sub(body, 3)
-    createCmdTask(self, id, cid, code)
-    -- os.queueEvent()
-    self:heard(id, dist, ksrx)
-    return self:send(id, self.msg.CmdAck, u16bes(cid))
-  end
-})
+function Msg.CmdReq(self, id, body, dist, ksrx)
+  if #body < 2 then return end
+  local cid = besu16(sub(body, 1, 2))
+  local code = sub(body, 3)
+  createCmdTask(self, id, cid, code)
+  -- os.queueEvent()
+  self:heard(id, dist, ksrx)
+  return self:send(id, self.msg.CmdAck, u16bes(cid))
+end
 
-Link:reg({
-  name = "CmdAck",
-  mode = WEP_LNK,
-  min = 2,
-  max = 2,
-  handle = function(self, id, body, dist, ksrx)
-    local cid = besu16(body)
-    self.cmdack[id] = cid
-    -- os.queueEvent("link.CmdAck", self.name, id)
-    self:heard(id, dist, ksrx)
-    -- self:log("ack:" .. cid .. " #" .. id)
-  end
-})
+function Msg.CmdAck(self, id, body, dist, ksrx)
+  if #body ~= 2 then return end
+  local cid = besu16(body)
+  self.cmdack[id] = cid
+  -- os.queueEvent("link.CmdAck", self.name, id)
+  self:heard(id, dist, ksrx)
+  -- self:log("ack:" .. cid .. " #" .. id)
+end
 
 local CMDRES_ST = {"OK","Err","Bad"}
 local CMDRES_PO = {3,1,2}
 
-Link:reg({
-  name = "CmdRes",
-  mode = WEP_LNK,
-  min = 3,
-  max = 0x100003,
-  handle = function(self, id, body, dist, ksrx)
-    local cid = besu16(sub(body, 1, 2))
-    local status = CMDRES_ST[dec(body,3,3)] or "Unk"
-    local result = sub(body, 4)
-    -- os.queueEvent("link.CmdRes", self.name, cid)
-    self:heard(id, dist, ksrx)
-    -- self:log("$" .. cid .. " #" .. id .. " " .. status .. ": " .. result)
-    self:report("$"..cid, {status,result}, id)
-  end
-})
+
+function Msg.CmdRes(self, id, body, dist, ksrx)
+  if #body < 3 then return end
+  local cid = besu16(sub(body, 1, 2))
+  local status = CMDRES_ST[dec(body,3,3)] or "Unk"
+  local result = sub(body, 4)
+  -- os.queueEvent("link.CmdRes", self.name, cid)
+  self:heard(id, dist, ksrx)
+  -- self:log("$" .. cid .. " #" .. id .. " " .. status .. ": " .. result)
+  self:report("$"..cid, {status,result}, id)
+end
+
 
 ------- Log Sender ------------------------------------
 
@@ -658,10 +622,6 @@ function Link.log(self, ...)
   self.logs:write(s)
   for id in pairs(self.watcher) do self:send(id, self.msg.LogData, s) end
   if self.showlog then tui.print(s) end
-end
-
-local function rawadd(t,k,v)
-  return rawset((rawget(t,k) or 0) + v)
 end
 
 local function recur_print(callback,tbl,depth,pathstr)
@@ -747,84 +707,40 @@ function Link.unwatchAll(self)
 end
 
 ------- Log Handler -----------------------------------
-
-Link:reg({
-  name = "LogData",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0x10000,
-  handle = function(self, id, body, dist, ksrx)
-    if self.watching[id] then
-      self:heard(id, dist, ksrx)
-      return tui.print(body)
-    end
-  end
-})
-
-Link:reg({
-  name = "LogClear",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id, body, dist, ksrx)
+function Msg.LogData(self, id, body, dist, ksrx)
+  if self.watching[id] then
     self:heard(id, dist, ksrx)
-    local logs = self.logs
-    for i = 1, #logs do logs[i] = "" end
+    return tui.print(body)
   end
-})
+end
 
-Link:reg({
-  name = "LogWatch",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id, _, dist, ksrx)
-    self:heard(id, dist, ksrx)
-    if self.watcher[id] == nil then
-      self.watcher[id] = true
-      self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n"))
-    end
-  end
-})
+function Msg.LogClear(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+  local logs = self.logs
+  for i = 1, #logs do logs[i] = "" end
+end
 
-Link:reg({
-  name = "LogWatchQ",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id, _, dist, ksrx)
-    self:heard(id, dist, ksrx)
-    if self.watcher[id] == nil then
-      self.watcher[id] = true
-    end
+function Msg.LogWatch(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+  if self.watcher[id] == nil then
+    self.watcher[id] = true
+    self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n"))
   end
-})
+end
 
-Link:reg({
-  name = "LogUnwatch",
-  mode = WEP_LNK,
-  min = 0,
-  max = 0,
-  handle = function(self, id, _, dist, ksrx)
-    self:heard(id, dist, ksrx)
-    self.watcher[id] = nil
+function Msg.LogWatchQ(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+  if self.watcher[id] == nil then
+    self.watcher[id] = true
   end
-})
+end
+
+function Msg.LogUnwatch(self, id, _, dist, ksrx)
+  self:heard(id, dist, ksrx)
+  self.watcher[id] = nil
+end
 
 ----------------- Exports ----------------------------------
-
-local mt_Msg = {
-  __tostring = function(self)
-    local list = {}
-    for i, v in ipairs(self) do list[i] = v.name end
-    return "{" .. concat(list, ",") .. "}"
-  end
-}
-
-local mt_Link = {
-  __index = Link,
-  __tostring = function(self) return "Link{" .. self.name .. "}" end
-}
 
 local function checker_timer(t)
   local now = clock()
@@ -866,6 +782,7 @@ local function newLink(name, key, hw)
     hws = hw.transmit
     if type(hws) ~= "function" then --
       hws = fake_transmit(name)
+      hw = {fake = true}
     end
   else
     hws = fake_transmit(name)
@@ -886,9 +803,9 @@ local function newLink(name, key, hw)
     name = name,
     key = key,
     id = ID,
-    onConnected = utils.asEvent({unpack(Link.onConnected)}),
+    onConnected = utils.asEvent({}),
     -- message
-    msg = setmetatable(utils.assign({}, Link.msg), mt_Msg),
+    msg = Msg, -- setmetatable(utils.assign({}, Link.msg), mt_Msg),
     -- peers
     peer = {}, -- `nil`:manul, `false`:block, `*`:auto accept
     seen = {},
@@ -909,7 +826,10 @@ local function newLink(name, key, hw)
     -- command
     cmdcnt = 0,
     cmdack = {},
-    cmdhist = {}
+    cmdhist = {},
+    -- defaults
+    chid = Link.chid,
+    idch = Link.idch
   }
   self.checker.link = self
   self.finder.link = self
@@ -920,14 +840,15 @@ end
 
 -- [(m*16+n):1][name:n][crypt([sum(cls,lch,rch,body):4][cls:1][body])]
 local function receive()
-  local lch, rch, pkg, dist, self, m, n
+  local lch, rch, pkg, dist, link
+  , m, n
   while true do
     _, _, lch, rch, pkg, dist = os.pullEvent("modem_message")
     if type(pkg) == "string" then
       m = dec(pkg, 1)
       n = m % 16
-      self = managed[sub(pkg, 2, n + 1)]
-      if self then
+      link = managed[sub(pkg, 2, n + 1)]
+      if link then
         m = m - n
         n = n + 2
         break
@@ -935,14 +856,14 @@ local function receive()
     end
     pkg = nil
   end
-  local id = self.chid(rch)
+  local id = link.chid(rch)
   local ks
   if m == WEP_LNK then
-    ks = self.ksrx[id] -- kss
+    ks = link.ksrx[id] -- kss
     if not ks then return end
     ks = rc4_load(ks)
   elseif m == WEP_DTG then
-    ks = rc4_new(self.key)
+    ks = rc4_new(link.key)
   else
     return
   end
@@ -951,14 +872,19 @@ local function receive()
   if len < 0 then return end
   local sum = rc4_crypt_str2num(ks, pkg, n, n + 3)
   local cls = rc4_crypt_byte(ks, dec(pkg, ci))
-  local msg = self.msg[cls]
-  if not msg or m ~= msg.mode or len < msg.min or len > msg.max then return end
+  local handle = link.msg[cls]
+  if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
-  if crc32n_buf(crc32n0_cww(cls, lch, rch), body) ~= sum then return end
-  return msg.handle(self, id, enc(unpack(body)), dist, ks)
+  if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
+    return handle(link, id, enc(unpack(body)), dist, ks)
+  end
 end
 
-local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Link = Link, new = newLink, of = managed}
+local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Link = Link, Msg = Msg, new = newLink, of = managed}
+
+function M.newMsg()
+  return setmetatable(utils.assign({}, Msg), mt_Msg)
+end
 
 function M.main() while true do receive() end end
 

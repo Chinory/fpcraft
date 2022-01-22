@@ -25,17 +25,11 @@ local M = { --
 
 function M.mySum() return sum(M._) end
 
-link.Link:reg({
-  name = "InvData",
-  mode = link.WEP_LNK,
-  min = 0,
-  max = 0x10000,
-  handle = function(self, id, body, dist, ksrx)
-    M[id] = body
-    -- self:log("InvData", id, body)
-    self:heard(id, dist, ksrx)
-  end
-})
+function link.Msg.InvData(self, id, body, dist, ksrx)
+  M[id] = body
+  -- self:log("InvData", id, body)
+  self:heard(id, dist, ksrx)
+end
 
 function M.main()
   if not turtle.fake then M._ = scan() end

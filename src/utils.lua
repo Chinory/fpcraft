@@ -23,6 +23,7 @@ local function extend(A, B)
 end
 
 local function assign(dst, src)
+  for k, v in ipairs(src) do dst[k] = v end
   for k, v in pairs(src) do dst[k] = v end
   return dst
 end

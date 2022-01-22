@@ -48,6 +48,8 @@ local mt = {__index = Timer}
 
 local M = {}
 
+
+
 function M.new(obj) return setmetatable(obj, mt) end
 
 function M.start(obj) return Timer.start(setmetatable(obj, mt)) end
