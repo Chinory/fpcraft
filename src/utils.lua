@@ -355,7 +355,7 @@ function M.prettySortedInts(i)
       insert(o, s)
       insert(o, e)
     else
-      insert(o, s .. '..' .. e)
+      insert(o, s .. '~' .. e)
     end
   end
   local function clear()

@@ -297,7 +297,6 @@ local function lnrs_tmo(self)
   local key = self.id
   if tbl[key] == self then
     tbl[key] = nil
-    -- self.link:log("Conn Of" .. self.id .. " Expr")
     self.link:report("Conn Expr", {}, self.id)
   end
 end
@@ -333,8 +332,8 @@ function Msg.ConnReq(self, id, body)
     tkpubl = besu32(sub(body, 1, 4))
   })
 
-  -- self:log("Conn Of #" .. id .. " " .. rem_ms)
-  self:report("Conn Of", {}, id)
+  -- self:log("Conn From #" .. id .. " " .. rem_ms)
+  self:report("Conn From", {}, id)
 
   if peer then return self:accept(id) end
 end
@@ -383,7 +382,8 @@ function Msg.ConnAcpt(self, id, body, dist)
 
   self.hws(tch, mch, pkg)
 
-  self:log("Conn Acpt By #" .. id) -- , "After", floor((clock() - lnrq.clock) * 1000))
+  -- self:log("Conn Acpt By #" .. id) -- , "After", floor((clock() - lnrq.clock) * 1000))
+  self:report("Conn Acpt", {}, id)
 
   self:onConnected(id)
 end

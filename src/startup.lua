@@ -97,7 +97,7 @@ else
       term.clear()
       term.setCursorPos(1, 1)
       tui.print("fxcraft Server 1.0")
-      tui.write(s)
+      tui.print(s)
       s = ""
       local name = tui.read("> UserName: ")
       local key = tui.read("> Password: ", "*")
@@ -109,7 +109,7 @@ else
         ln.showlog = false
       else
         os.sleep(3)
-        s = " Wrong username or password\n"
+        s = " Wrong username or password"
       end
     end
   end)
@@ -121,7 +121,7 @@ else
     local t = inv.mySum()
     return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
   end)
-  table.insert(lnk.finder.ids, 17)
+  table.insert(lnk.finder.ids, 18)
 end
 
 return proc.main()
