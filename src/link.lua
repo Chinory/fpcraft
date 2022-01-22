@@ -274,7 +274,7 @@ function Link.connect(self, ch, tmo_ms)
 
   local _time = floor(gtime() * 1000)
   self.lnrq[tkpubl] = timer.start({
-    ontimer = lnrq_tmo,
+    onTimer = lnrq_tmo,
     interval = tmo_ms / 1000,
     link = self,
     ch = ch,
@@ -322,7 +322,7 @@ function Msg.ConnReq(self, id, body)
 
   local rem_s = rem_ms / 1000
   self.lnrs[id] = timer.start({
-    ontimer = lnrs_tmo,
+    onTimer = lnrs_tmo,
     interval = rem_s,
     link = self,
     id = id,
@@ -650,7 +650,7 @@ function Link.report(self, topic, braches, leaf)
   local report = self.reports[topic]
   if not report then
     report = timer.start({
-      ontimer = report_timer,
+      onTimer = report_timer,
       interval = 0.05,
       link = self,
       topic = topic,
@@ -811,12 +811,12 @@ local function newLink(name, key, hw)
     seen = {},
     dist = {},
     checker = timer.start({
-      ontimer = checker_timer,
+      onTimer = checker_timer,
       interval = 2,
       checkTime = 6,
       closeTime = 12
     }),
-    finder = timer.start({ontimer = finder_timer, interval = 10, ids = {}}),
+    finder = timer.start({onTimer = finder_timer, interval = 10, ids = {}}),
     -- logs
     logs = utils.newRing(24, ""),
     showlog = false,

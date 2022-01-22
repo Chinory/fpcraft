@@ -28,7 +28,7 @@ function Timer.emit(self)
     os.cancelTimer(id)
     managed[id] = nil
     self.timerID = nil
-    self:ontimer()
+    self:onTimer()
   end
   return self
 end
@@ -61,8 +61,8 @@ function M.main()
     if self then
       self.timerID = nil
       managed[id] = nil
-      self:ontimer()
-      -- if self:ontimer() then
+      self:onTimer()
+      -- if self:onTimer() then
       --   id = os.startTimer(self.interval)
       --   managed[id] = self
       --   self.timerID = id
