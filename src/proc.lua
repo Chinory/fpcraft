@@ -1,7 +1,7 @@
 -- local utils = require("utils")
 -- local tui = require("tui")
 local unpack = table.unpack
-
+local tui = require("tui")
 local managed = {}
 
 local M = {max = 0, n = 0}
@@ -39,7 +39,11 @@ function M.main()
     for id, task in pairs(managed) do
       if task.ev == nil or task.ev == evdata[1] then
         local ok, ev = coroutine.resume(task.co, unpack(evdata)) -- foreign code
-        if not ok or coroutine.status(task.co) == "dead" then
+        if not ok then
+          tui.print("(!) " .. ev)
+          managed[id] = nil
+          M.n = M.n - 1
+        elseif coroutine.status(task.co) == "dead" then
           managed[id] = nil
           M.n = M.n - 1
         else

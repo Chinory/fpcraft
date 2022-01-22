@@ -256,11 +256,12 @@ end
 ------- ConnReq Sender -------------------------------------
 
 local function lnrq_tmo(self)
+  self.timerFn = nil
   local tbl = self.link.lnrq
   local key = self.tkpubl
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn " .. self.time .. " Finish") -- After", self.interval * 1000)
+    self.link:log("Conn " .. self.time .. " Finish") -- After", self.timerIv * 1000)
   end
 end
 
@@ -274,8 +275,8 @@ function Link.connect(self, ch, tmo_ms)
 
   local _time = floor(gtime() * 1000)
   self.lnrq[tkpubl] = timer.start({
-    onTimer = lnrq_tmo,
-    interval = tmo_ms / 1000,
+    timerFn = lnrq_tmo,
+    timerIv = tmo_ms / 1000,
     link = self,
     ch = ch,
     tkpubl = tkpubl,
@@ -291,6 +292,7 @@ end
 ------- ConnReq Handler -------------------------------------
 
 local function lnrs_tmo(self)
+  self.timerFn = nil
   local tbl = self.link.lnrs
   local key = self.id
   if tbl[key] == self then
@@ -317,13 +319,13 @@ function Msg.ConnReq(self, id, body)
   local old = self.lnrs[id]
   if old then
     if old.accepted ~= nil or old.time >= time then return end
-    old:stop()
+    timer.stop(old)
   end
 
   local rem_s = rem_ms / 1000
   self.lnrs[id] = timer.start({
-    onTimer = lnrs_tmo,
-    interval = rem_s,
+    timerFn = lnrs_tmo,
+    timerIv = rem_s,
     link = self,
     id = id,
     time = time,
@@ -345,14 +347,14 @@ function Link.accept(self, id)
   if not res then return end
 
   if not res.accepted then
-    res:stop()
+    timer.stop(res)
     local now = clock()
     local rtt = (res.expire - now) * 2
-    res.interval = rtt
+    res.timerIv = rtt
     res.expire = now + rtt
     res.tkpriv = token32(self.id)
     res.accepted = true
-    res:start()
+    timer.start(res)
   end
 
   self:post(self.idch(id), self.msg.ConnAcpt, u32bes(res.tkpubl) .. u32bes(res.tkpriv))
@@ -396,7 +398,7 @@ function Msg.ConnEstb(self, id, body, dist, ksrx)
   local tkpriv = besu32(sub(body, 5, 8))
   if tkpriv ~= res.tkpriv then return end
 
-  res:stop()
+  timer.stop(res)
   self.lnrs[id] = nil
 
   local kss = rc4_save(ksrx)
@@ -639,10 +641,9 @@ end
 local function report_timer(t)
   t.life = t.life - 1
   if t.life < 1 then
+    t.timerFn = nil
     t.link.reports[t.topic] = nil
     recur_print(function(s)t.link:log(s)end,t.data,t.depth,t.topic)
-  else
-    t:start()
   end
 end
 
@@ -650,8 +651,8 @@ function Link.report(self, topic, braches, leaf)
   local report = self.reports[topic]
   if not report then
     report = timer.start({
-      onTimer = report_timer,
-      interval = 0.05,
+      timerFn = report_timer,
+      timerIv = 0.05,
       link = self,
       topic = topic,
       depth = #braches,
@@ -755,7 +756,6 @@ local function checker_timer(t)
       self:send(id, self.msg.ConnCheck)
     end
   end
-  t:start()
 end
 
 local function finder_timer(t)
@@ -763,7 +763,6 @@ local function finder_timer(t)
   for i, id in ipairs(t.ids) do
     if not self.seen[id] and id ~= self.id then self:connect(id) end
   end
-  t:start()
 end
 
 local function fake_transmit(name) --
@@ -811,12 +810,16 @@ local function newLink(name, key, hw)
     seen = {},
     dist = {},
     checker = timer.start({
-      onTimer = checker_timer,
-      interval = 2,
+      timerFn = checker_timer,
+      timerIv = 2,
       checkTime = 6,
       closeTime = 12
     }),
-    finder = timer.start({onTimer = finder_timer, interval = 10, ids = {}}),
+    finder = timer.start({
+      timerFn = finder_timer,
+      timerIv = 10,
+      ids = {}
+    }),
     -- logs
     logs = utils.newRing(24, ""),
     showlog = false,

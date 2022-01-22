@@ -1,72 +1,65 @@
-local managed = setmetatable({}, {__mode = "v"})
+local managed = {}
 
-local Timer = {}
+local M = {of = managed}
 
-function Timer.start(self)
-  local id = self.timerID
-  if id == nil then
-    id = os.startTimer(self.interval)
+function M.start(self)
+  local id = self.timerId
+  if not id then
+    id = os.startTimer(self.timerIv)
     managed[id] = self
-    self.timerID = id
+    self.timerId = id
   end
   return self
 end
 
-function Timer.stop(self)
-  local id = self.timerID
+function M.stop(self)
+  local id = self.timerId
   if managed[id] == self then
     os.cancelTimer(id)
     managed[id] = nil
-    self.timerID = nil
+    self.timerId = nil
   end
   return self
 end
 
-function Timer.emit(self)
-  local id = self.timerID
+function M.emit(self)
+  local id = self.timerId
   if managed[id] == self then
     os.cancelTimer(id)
     managed[id] = nil
-    self.timerID = nil
-    self:onTimer()
+    self.timerId = nil
+    self:timerFn()
   end
   return self
 end
 
-function Timer.skip(self)
-  local id = self.timerID
+function M.skip(self)
+  local id = self.timerId
   if managed[id] == self then
     os.cancelTimer(id)
-    id = os.startTimer(self.interval)
+    id = os.startTimer(self.timerIv)
     managed[id] = self
-    self.timerID = id
+    self.timerId = id
   end
   return self
 end
 
-local mt = {__index = Timer}
-
-local M = {}
-
-
-
-function M.new(obj) return setmetatable(obj, mt) end
-
-function M.start(obj) return Timer.start(setmetatable(obj, mt)) end
+local function once(self)
+  self:timerFn()
+  if self.timerFn then
+    local id = os.startTimer(self.timerIv)
+    managed[id] = self
+    return id
+  end
+end
 
 function M.main()
   while true do
     local _, id = os.pullEvent("timer")
     local self = managed[id]
     if self then
-      self.timerID = nil
       managed[id] = nil
-      self:onTimer()
-      -- if self:onTimer() then
-      --   id = os.startTimer(self.interval)
-      --   managed[id] = self
-      --   self.timerID = id
-      -- end
+      _, self.timerId = pcall(once, self)
     end
   end
 end
