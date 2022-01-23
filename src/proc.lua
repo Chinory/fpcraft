@@ -38,7 +38,7 @@ function M.main()
   while true do
     for id, task in pairs(managed) do
       if task.ev == nil or task.ev == evdata[1] then
-        local ok, ev = coroutine.resume(task.co, unpack(evdata)) -- foreign code
+        local ok, ev = coroutine.resume(task.co, unpack(evdata)) --foreign
         if not ok then
           tui.print("(!) " .. ev)
           managed[id] = nil

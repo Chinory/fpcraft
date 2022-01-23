@@ -256,7 +256,6 @@ end
 ------- ConnReq Sender -------------------------------------
 
 local function lnrq_tmo(self)
-  self.timerFn = nil
   local tbl = self.link.lnrq
   local key = self.tkpubl
   if tbl[key] == self then
@@ -274,7 +273,7 @@ function Link.connect(self, ch, tmo_ms)
   while self.lnrq[tkpubl] do tkpubl = tkpubl + 1 end
 
   local _time = floor(gtime() * 1000)
-  self.lnrq[tkpubl] = timer.start({
+  self.lnrq[tkpubl] = timer.once({
     timerFn = lnrq_tmo,
     timerIv = tmo_ms / 1000,
     link = self,
@@ -292,7 +291,6 @@ end
 ------- ConnReq Handler -------------------------------------
 
 local function lnrs_tmo(self)
-  self.timerFn = nil
   local tbl = self.link.lnrs
   local key = self.id
   if tbl[key] == self then
@@ -322,7 +320,7 @@ function Msg.ConnReq(self, id, body)
   end
 
   local rem_s = rem_ms / 1000
-  self.lnrs[id] = timer.start({
+  self.lnrs[id] = timer.once({
     timerFn = lnrs_tmo,
     timerIv = rem_s,
     link = self,
@@ -353,7 +351,7 @@ function Link.accept(self, id)
     res.expire = now + rtt
     res.tkpriv = token32(self.id)
     res.accepted = true
-    timer.start(res)
+    timer.once(res)
   end
 
   self:post(self.idch(id), self.msg.ConnAcpt, u32bes(res.tkpubl) .. u32bes(res.tkpriv))
@@ -536,7 +534,7 @@ function Link.tel(self, ids)
   table.sort(ids)
   local prefix = ">" .. utils.prettySortedInts(ids) .. ">"
   while true do
-    local code = tui.read(prefix, nil, self.cmdhist, tui.lua_complete)
+    local code = tui.read(prefix, nil, self.cmdhist, tui.completeLua)
     if code == "" then break end
     sendCmd(self, code, ids)
   end
@@ -640,17 +638,15 @@ end
 
 local function report_timer(t)
   t.life = t.life - 1
-  if t.life < 1 then
-    t.timerFn = nil
-    t.link.reports[t.topic] = nil
-    recur_print(function(s)t.link:log(s)end,t.data,t.depth,t.topic)
-  end
+  if t.life > 0 then return timer.once(t) end
+  t.link.reports[t.topic] = nil
+  recur_print(function(s)t.link:log(s)end,t.data,t.depth,t.topic)
 end
 
 function Link.report(self, topic, braches, leaf)
   local report = self.reports[topic]
   if not report then
-    report = timer.start({
+    report = timer.once({
       timerFn = report_timer,
       timerIv = 0.05,
       link = self,
@@ -756,13 +752,15 @@ local function checker_timer(t)
       self:send(id, self.msg.ConnCheck)
     end
   end
+  timer.once(t)
 end
 
 local function finder_timer(t)
   local self = t.link
-  for i, id in ipairs(t.ids) do
+  for _, id in ipairs(t.ids) do
     if not self.seen[id] and id ~= self.id then self:connect(id) end
   end
+  timer.once(t)
 end
 
 local function fake_transmit(name) --
@@ -809,13 +807,13 @@ local function newLink(name, key, hw)
     peer = {}, -- `nil`:manul, `false`:block, `*`:auto accept
     seen = {},
     dist = {},
-    checker = timer.start({
+    checker = timer.once({
       timerFn = checker_timer,
       timerIv = 2,
       checkTime = 6,
       closeTime = 12
     }),
-    finder = timer.start({
+    finder = timer.once({
       timerFn = finder_timer,
       timerIv = 10,
       ids = {}

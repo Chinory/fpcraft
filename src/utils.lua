@@ -16,10 +16,11 @@ local function shrink(list, size)
   return list
 end
 
-local function extend(A, B)
-  local AB = {unpack(A)}
-  for _, b in ipairs(B) do insert(AB, b) end
-  return AB
+local function extend(list, more)
+  for _, x in ipairs(more) do
+    insert(list, x)
+  end
+  return list
 end
 
 local function assign(dst, src)
@@ -56,13 +57,13 @@ local function curry(argn, func)
   local function curried(args0)
     if #args0 < argn then
       return function(...)
-        return curried(extend(args0, shrink({...}, argn - #args0)))
+        return curried(extend({unpack(args0)}, shrink({...}, argn - #args0)))
       end
     else
       return function(...)
         local args1 = {...}
         if #args1 == 0 then return func(unpack(args0)) end
-        return func(unpack(extend(args0, args1)))
+        return func(unpack(extend({unpack(args0)}, args1)))
       end
     end
   end
@@ -347,15 +348,36 @@ function M.des(str)
   end
 end
 
-function M.prettySortedInts(i)
-  local o = {}
+function M.prettyList(list)
+  local nums = {}
+  local strs = {""}
+  for _, x in ipairs(list) do
+    if type(x) == "number" then
+      insert(nums, x)
+    else
+      insert(strs, x)
+    end
+  end
+  if #nums > 0 then
+    table.sort(nums)
+    if #strs > 1 then
+      strs[1] = M.prettySortedInts(nums)
+      return concat(strs, ',')
+    end
+    return M.prettySortedInts(nums)
+  end
+  return concat(strs, ',', 2)
+end
+
+function M.prettySortedInts(I)
+  local O = {}
   local s, e
   local function flush()
     if e - s == 1 then
-      insert(o, s)
-      insert(o, e)
+      insert(O, s)
+      insert(O, e)
     else
-      insert(o, s .. '~' .. e)
+      insert(O, s .. '~' .. e)
     end
   end
   local function clear()
@@ -364,12 +386,12 @@ function M.prettySortedInts(i)
         flush()
         e = nil
       else
-        insert(o, s)
+        insert(O, s)
       end
       s = nil
     end
   end
-  for _, x in ipairs(i) do
+  for _, x in ipairs(I) do
     if not x then
       clear()
     elseif e then
@@ -384,7 +406,7 @@ function M.prettySortedInts(i)
       if x - s == 1 then
         e = x
       else
-        insert(o, s)
+        insert(O, s)
         s = x
       end
     else
@@ -392,7 +414,7 @@ function M.prettySortedInts(i)
     end
   end
   clear()
-  return concat(o, ',')
+  return concat(O, ',')
 end
 
 local lti1 = function(a, b) return a[1] < b[1] end
