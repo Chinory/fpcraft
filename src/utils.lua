@@ -392,7 +392,7 @@ function M.prettySortedInts(I)
     end
   end
   for _, x in ipairs(I) do
-    if not x then
+    if type(x) ~= "number" then
       clear()
     elseif e then
       if x - e == 1 then

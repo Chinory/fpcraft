@@ -205,7 +205,8 @@ local Link = {chid = utils.id, idch = utils.id}
 
 local mt_Link = {
   __index = Link,
-  __tostring = function(self) return "Link{" .. self.name .. "}" end
+  __tostring = function(self) return "Link{" .. self.name .. "}" end,
+  __call = function(self, ...) return self:tel(...) end
 }
 
 function Link.post(self, ch, cls, body)
@@ -260,7 +261,7 @@ local function lnrq_tmo(self)
   local key = self.tkpubl
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn " .. self.time .. " Finish") -- After", self.timerIv * 1000)
+    self.link:log("Conn " .. self.time .. " End")
   end
 end
 
@@ -272,7 +273,7 @@ function Link.connect(self, ch, tmo_ms)
   local tkpubl = token32(self.id)
   while self.lnrq[tkpubl] do tkpubl = tkpubl + 1 end
 
-  local _time = floor(gtime() * 1000)
+  local now = floor(gtime() * 1000)
   self.lnrq[tkpubl] = timer.once({
     timerFn = lnrq_tmo,
     timerIv = tmo_ms / 1000,
@@ -280,11 +281,11 @@ function Link.connect(self, ch, tmo_ms)
     ch = ch,
     tkpubl = tkpubl,
     clock = clock(),
-    time = _time
+    time = now
   })
 
   self:post(ch, self.msg.ConnReq, u32bes(tkpubl) .. u32bes(epoch()) .. u16bes(tmo_ms))
-  self:log("Conn " .. _time .. " Start")
+  self:log("Conn " .. now .. " Start")
   return tkpubl
 end
 
@@ -295,7 +296,7 @@ local function lnrs_tmo(self)
   local key = self.id
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:report("Conn Expr", {}, self.id)
+    self.link:log("Conn From " .. self.id .. " Expr")
   end
 end
 
@@ -330,10 +331,11 @@ function Msg.ConnReq(self, id, body)
     tkpubl = besu32(sub(body, 1, 4))
   })
 
-  -- self:log("Conn From #" .. id .. " " .. rem_ms)
-  self:report("Conn From", {}, id)
-
-  if peer then return self:accept(id) end
+  if peer then
+    return self:accept(id)
+  else
+    self:report("Conn From @", id, 1)
+  end
 end
 
 
@@ -380,8 +382,7 @@ function Msg.ConnAcpt(self, id, body, dist)
 
   self.hws(tch, mch, pkg)
 
-  -- self:log("Conn Acpt By #" .. id) -- , "After", floor((clock() - lnrq.clock) * 1000))
-  self:report("Conn Acpt", {}, id)
+  self:report("Conn Acpt @", id, 1)
 
   self:onConnected(id)
 end
@@ -405,8 +406,7 @@ function Msg.ConnEstb(self, id, body, dist, ksrx)
 
   self:saw(id, dist)
 
-  -- self:log("Conn Estb #" .. id)
-  self:report("Conn Estb", {}, id)
+  self:report("Conn Estb @", id, 1)
 
   self:onConnected(id)
 end
@@ -449,8 +449,7 @@ end
 
 
 function Msg.ConnClose(self, id)
-  -- self:log("Conn Close #" .. id)
-  self:report("Conn Close", {}, id)
+  self:report("Conn Close @", id, 1)
   return self:kill(id)
 end
 
@@ -523,13 +522,10 @@ function Link.cmd(self, code, ids)
 end
 
 -- Remote Term
-function Link.tel(self, ids)
-  if ids == nil then
+function Link.tel(self, ...)
+  local ids = {...}
+  if #ids == 0 then
     ids = utils.keys(self.seen)
-  elseif type(ids) == "number" then
-    ids = {ids}
-  elseif type(ids) ~= "table" then
-    return nil, "bad ids type"
   end
   table.sort(ids)
   local prefix = ">" .. utils.prettySortedInts(ids) .. ">"
@@ -540,20 +536,6 @@ function Link.tel(self, ids)
   end
 end
 
--- ssh toy
-function Link.ssh(self, ids)
-  if ids == nil then
-    ids = utils.keys(self.seen)
-  elseif type(ids) == "number" then
-    ids = {ids}
-  elseif type(ids) ~= "table" then
-    return nil, "bad ids type"
-  end
-
-  self:watch(unpack(ids))
-  self:tel(ids)
-  self:unwatch(unpack(ids))
-end
 ------- Command Handler -----------------------------------
 
 local function createCmdTask(self, id, cid, code)
@@ -595,7 +577,6 @@ function Msg.CmdAck(self, id, body, dist, ksrx)
   self.cmdack[id] = cid
   -- os.queueEvent("link.CmdAck", self.name, id)
   self:heard(id, dist, ksrx)
-  -- self:log("ack:" .. cid .. " #" .. id)
 end
 
 local CMDRES_ST = {"OK","Err","Bad"}
@@ -609,62 +590,23 @@ function Msg.CmdRes(self, id, body, dist, ksrx)
   local result = sub(body, 4)
   -- os.queueEvent("link.CmdRes", self.name, cid)
   self:heard(id, dist, ksrx)
-  -- self:log("$" .. cid .. " #" .. id .. " " .. status .. ": " .. result)
-  self:report("$"..cid, {status,result}, id)
+  self:report('$'..cid..' '..status..' '..result.." @", id)
 end
 
 
 ------- Log Sender ------------------------------------
 
-function Link.log(self, ...)
-  -- local s = concat({'#'..self.id, floor(gtime() * 10), ...}, " ")
-  local s = "@" .. concat({self.id, ...}, " ")
-  self.logs:write(s)
-  for id in pairs(self.watcher) do self:send(id, self.msg.LogData, s) end
-  if self.showlog then tui.print(s) end
+function Link.log(self, str)
+  str = '@' .. self.id .. ' ' .. str
+  self.logs:write(str)
+  for id in pairs(self.watcher) do self:send(id, self.msg.LogData, str) end
+  if self.showlog then tui.print(str) end
 end
 
-local function recur_print(callback,tbl,depth,pathstr)
-  if depth > 0 then
-    for k, v in pairs(tbl) do
-      recur_print(callback,v, depth - 1, pathstr..' '..k)
-    end
-  else
-    table.sort(tbl)
-    callback(pathstr..' '..utils.prettySortedInts(tbl))
+function Link.report(self, fmt, var, age)
+  if self.showlog then
+    return tui.report('@'..self.id..' '..fmt, var, age or self.reportAge)
   end
-end
-
-
-local function report_timer(t)
-  t.life = t.life - 1
-  if t.life > 0 then return timer.once(t) end
-  t.link.reports[t.topic] = nil
-  recur_print(function(s)t.link:log(s)end,t.data,t.depth,t.topic)
-end
-
-function Link.report(self, topic, braches, leaf)
-  local report = self.reports[topic]
-  if not report then
-    report = timer.once({
-      timerFn = report_timer,
-      timerIv = 0.05,
-      link = self,
-      topic = topic,
-      depth = #braches,
-      data = stat.new(),
-      life = 4
-    })
-    self.reports[topic]=report
-  else
-    report.life = 4
-  end
-  -- order bug
-  local node = report.data
-  for _, v in ipairs(braches) do
-    node = node[v]
-  end
-  table.insert(node, leaf)
 end
 
 function Link.clearLog(self, ...)
@@ -745,8 +687,7 @@ local function checker_timer(t)
   for id, time in pairs(self.seen) do
     time = now - time
     if time > t.closeTime then
-      -- self:log("Conn Lost #" .. id)
-      self:report("Conn Lost", {}, id)
+      self:report("Conn Lost @", id)
       self:close(id)
     elseif time > t.checkTime then
       self:send(id, self.msg.ConnCheck)
@@ -823,14 +764,14 @@ local function newLink(name, key, hw)
     showlog = false,
     watcher = utils.asSet({}),
     watching = utils.asSet({}),
-    reports = {},
     -- command
     cmdcnt = 0,
     cmdack = {},
     cmdhist = {},
     -- defaults
     chid = Link.chid,
-    idch = Link.idch
+    idch = Link.idch,
+    reportAge = 0.25
   }
   self.checker.link = self
   self.finder.link = self

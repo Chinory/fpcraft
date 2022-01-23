@@ -29,7 +29,6 @@ function M.mySum() return sum(M._) end
 
 function link.Msg.InvData(self, id, body, dist, ksrx)
   M[id] = body
-  -- self:log("InvData", id, body)
   self:heard(id, dist, ksrx)
 end
 

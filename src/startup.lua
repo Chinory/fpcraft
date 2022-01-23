@@ -31,7 +31,7 @@ local function term_main(exitable)
   local history = {}
   local prefix = "<" .. ID .. ">"
   while true do
-    local str = tui.read(prefix, nil, history, tui.lua_complete)
+    local str = tui.read(prefix, nil, history, tui.completeLua)
     if str == "" then
       if exitable then break end
     else
