@@ -29,7 +29,7 @@ utils.assign(ez, utils)
 -- Local Term
 local function term_main(exitable)
   local history = {}
-  local prefix = "<" .. ID .. ">"
+  local prefix = '\7' .. ID .. ">"
   while true do
     local str = tui.read(prefix, nil, history, tui.completeLua)
     if str == "" then
@@ -75,8 +75,13 @@ function ez.reboot()
   os.reboot()
 end
 
-if lnk.hw.open then 
-  lnk.hw.open(ID)
+function ez.reboots()
+  lnk:sendCmd("os.reboot()", utils.keys(lnk.seen))
+  os.reboot()
+end
+
+if lnk.hw.open then
+  lnk.hw.open(lnk.idch(ID))
   lnk.hw.open(65535)
 end
 
@@ -105,6 +110,10 @@ else
       if ln and ln.key == key then
         ez.l = ln
         ln.showlog = true
+        ln.logs:sort()
+        for _, l in ipairs(ln.logs) do
+          tui.print('\7'..l)
+        end
         term_main(true)
         ln.showlog = false
       else

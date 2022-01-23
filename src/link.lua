@@ -261,7 +261,7 @@ local function lnrq_tmo(self)
   local key = self.tkpubl
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn " .. self.time .. " End")
+    self.link:log("Conn End " .. self.time)
   end
 end
 
@@ -285,7 +285,7 @@ function Link.connect(self, ch, tmo_ms)
   })
 
   self:post(ch, self.msg.ConnReq, u32bes(tkpubl) .. u32bes(epoch()) .. u16bes(tmo_ms))
-  self:log("Conn " .. now .. " Start")
+  self:log("Conn Start " .. now)
   return tkpubl
 end
 
@@ -510,6 +510,8 @@ local function sendCmd(self, code, ids)
   return cnt
 end
 
+Link.sendCmd = sendCmd
+
 function Link.cmd(self, code, ids)
   if ids == nil then
     ids = utils.keys(self.seen)
@@ -528,12 +530,29 @@ function Link.tel(self, ...)
     ids = utils.keys(self.seen)
   end
   table.sort(ids)
-  local prefix = ">" .. utils.prettySortedInts(ids) .. ">"
+  local prefix = '\24' .. utils.prettySortedInts(ids) .. ">"
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.completeLua)
     if code == "" then break end
     sendCmd(self, code, ids)
   end
+end
+
+-- SSH toy
+function Link.ssh(self, ...)
+  local ids = {...}
+  if #ids == 0 then
+    ids = utils.keys(self.seen)
+  end
+  table.sort(ids)
+  local prefix = '\18' .. utils.prettySortedInts(ids) .. ">"
+  self:watch(unpack(ids))
+  while true do
+    local code = tui.read(prefix, nil, self.cmdhist, tui.completeLua)
+    if code == "" then break end
+    sendCmd(self, code, ids)
+  end
+  self:unwatch(unpack(ids))
 end
 
 ------- Command Handler -----------------------------------
@@ -597,15 +616,15 @@ end
 ------- Log Sender ------------------------------------
 
 function Link.log(self, str)
-  str = '@' .. self.id .. ' ' .. str
+  str = self.id .. ' ' .. str
   self.logs:write(str)
   for id in pairs(self.watcher) do self:send(id, self.msg.LogData, str) end
-  if self.showlog then tui.print(str) end
+  if self.showlog then tui.print('\7' .. str) end
 end
 
 function Link.report(self, fmt, var, age)
   if self.showlog then
-    return tui.report('@'..self.id..' '..fmt, var, age or self.reportAge)
+    return tui.report('\7'..self.id..' '..fmt, var, age or self.reportAge)
   end
 end
 
@@ -649,7 +668,7 @@ end
 function Msg.LogData(self, id, body, dist, ksrx)
   if self.watching[id] then
     self:heard(id, dist, ksrx)
-    return tui.print(body)
+    return tui.print('\25'..body)--bad performance
   end
 end
 
@@ -663,7 +682,7 @@ function Msg.LogWatch(self, id, _, dist, ksrx)
   self:heard(id, dist, ksrx)
   if self.watcher[id] == nil then
     self.watcher[id] = true
-    self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n"))
+    self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n\25"))
   end
 end
 
