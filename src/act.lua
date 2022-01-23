@@ -78,6 +78,6 @@ function M.dig3rd(depth, width, height)
   return M.cube(u.Do2(M.digu, M.digd), M.tunr, M.tunl, depth, width, u.Re3(M.rusd), height)
 end
 
-u.setMetaKVList(M, "names", "funcs") -- define: M.names, M.funcs
+-- u.setMetaKVList(M, "names", "funcs") -- define: M.names, M.funcs
 
 return M

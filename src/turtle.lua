@@ -1,8 +1,4 @@
+local function fake(s) return function() return false, s end end
 return turtle or setmetatable({fake = true}, {
-  __mode = "v",
-  __index = function(t, k)
-    local v = function() print("turtle." .. k .. "()") return true, "fake" end
-    t[k] = v
-    return v
-  end
+  __index = function(_, k) return fake("turtle." .. k .. "()") end
 })

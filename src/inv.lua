@@ -2,8 +2,6 @@ local act = require("act")
 local stat = require("stat")
 local link = require("link")
 
-
-
 local function scan()
   local st = stat.new()
   for i = 1, 16 do
