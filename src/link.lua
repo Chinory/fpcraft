@@ -201,22 +201,22 @@ local mt_Msg = {
 
 local Msg = setmetatable({}, mt_Msg)
 
-local Link = {chid = utils.id, idch = utils.id}
+local Net = {chid = utils.id, idch = utils.id}
 
-local mt_Link = {
-  __index = Link,
-  __tostring = function(self) return "Link{" .. self.name .. "}" end,
+local mt_Net = {
+  __index = Net,
+  __tostring = function(self) return "Net{" .. self.name .. "}" end,
   __call = function(self, ...) return self:tel(...) end
 }
 
-function Link.post(self, ch, cls, body)
+function Net.post(self, ch, cls, body)
   local rch = self.idch(self.id)
   local ks = rc4_new(self.key)
   local pkg = wep_pkg(WEP_DTG, self.name, ks, cls, ch, rch, body)
   self.hws(ch, rch, pkg)
 end
 
-function Link.send(self, id, cls, body)
+function Net.send(self, id, cls, body)
   local tch = self.idch(id)
   local mch = self.idch(self.id)
   local kss = self.kstx[id]
@@ -227,7 +227,7 @@ function Link.send(self, id, cls, body)
   self.hws(tch, mch, pkg)
 end
 
-function Link.sendAll(self, cls, body)
+function Net.sendAll(self, cls, body)
   local mch = self.idch(self.id)
   local kstx = self.kstx
   local hws = self.hws
@@ -240,7 +240,7 @@ function Link.sendAll(self, cls, body)
   end
 end
 
-function Link.sendEach(self, cls, Body)
+function Net.sendEach(self, cls, Body)
   local mch = self.idch(self.id)
   local kstx = self.kstx
   local hws = self.hws
@@ -266,7 +266,7 @@ local function lnrq_tmo(self)
 end
 
 -- @param tmo_ms default 9000, max 65535
-function Link.connect(self, ch, tmo_ms)
+function Net.connect(self, ch, tmo_ms)
   ch = ch or 65535
   tmo_ms = tmo_ms or 9000
 
@@ -341,7 +341,7 @@ end
 
 ------- ConnAcpt Sender --------------------------------------
 
-function Link.accept(self, id)
+function Net.accept(self, id)
   local res = self.lnrs[id]
   if not res then return end
 
@@ -413,7 +413,7 @@ end
 
 ------- ConnClose Sender -------------------------------------
 
-function Link.kill(self, id)
+function Net.kill(self, id)
   self.kstx[id] = nil
   self.ksrx[id] = nil
   self.seen[id] = nil
@@ -430,13 +430,13 @@ local function byebye(self, id, kss)
   self.hws(tch, mch, pkg)
 end
 
-function Link.close(self, id)
+function Net.close(self, id)
   local kss = self.kstx[id]
   self:kill(id)
   if kss then byebye(self, id, kss) end
 end
 
-function Link.closeAll(self)
+function Net.closeAll(self)
   local kstx = self.kstx
   self.kstx = {}
   for id, kss in pairs(kstx) do
@@ -455,11 +455,11 @@ end
 
 ------- ConnAlive Sender -----------------------------------
 
-function Link.hint(self, id)
+function Net.hint(self, id)
   self:send(id, self.msg.ConnAlive, randstr3())
 end
 
-function Link.claim(self)
+function Net.claim(self)
   self:sendEach(self.msg.ConnAlive, randstr3)
 end
 
@@ -469,7 +469,7 @@ function Msg.ConnAlive() end
 
 ------- ConnCheck Sender -----------------------------------
 
-function Link.check(self, id)
+function Net.check(self, id)
   if self.seen[id] then
     self.seen[id] = clock() - self.checker.checkTime
     self:send(id, self.msg.ConnCheck)
@@ -496,9 +496,9 @@ local function sendCmd(self, code, ids)
   return cnt
 end
 
-Link.sendCmd = sendCmd
+Net.sendCmd = sendCmd
 
-function Link.cmd(self, code, ids)
+function Net.cmd(self, code, ids)
   if ids == nil then
     ids = utils.keys(self.seen)
   elseif type(ids) == "number" then
@@ -510,7 +510,7 @@ function Link.cmd(self, code, ids)
 end
 
 -- Remote Term
-function Link.tel(self, ...)
+function Net.tel(self, ...)
   local ids = {...}
   if #ids == 0 then
     ids = utils.keys(self.seen)
@@ -525,7 +525,7 @@ function Link.tel(self, ...)
 end
 
 -- SSH toy
-function Link.ssh(self, ...)
+function Net.ssh(self, ...)
   local ids = {...}
   if #ids == 0 then
     ids = utils.keys(self.seen)
@@ -596,24 +596,24 @@ end
 
 ------- Log Sender ------------------------------------
 
-function Link.log(self, str)
+function Net.log(self, str)
   str = self.id .. ' ' .. str
   self.logs:write(str)
   for id in pairs(self.watcher) do self:send(id, self.msg.LogData, str) end
   if self.showlog then tui.print('\7' .. str) end
 end
 
-function Link.report(self, fmt, var, age)
+function Net.report(self, fmt, var, age)
   if self.showlog then
     return tui.report('\7'..self.id..' '..fmt, var, age or self.reportAge)
   end
 end
 
-function Link.clearLog(self, ...)
+function Net.clearLog(self, ...)
   for _, id in ipairs({...}) do self:send(id, self.msg.LogClear) end
 end
 
-function Link.watch(self, ...)
+function Net.watch(self, ...)
   local watching = self.watching
   local list = {...}
   local msg = #list > 1 and self.msg.LogWatchQ or self.msg.LogWatch
@@ -626,7 +626,7 @@ function Link.watch(self, ...)
   end
 end
 
-function Link.unwatch(self, ...)
+function Net.unwatch(self, ...)
   local watching = self.watching
   for _, id in ipairs({...}) do
     local lv = (watching[id] or 0) - 1
@@ -637,7 +637,7 @@ function Link.unwatch(self, ...)
   end
 end
 
-function Link.unwatchAll(self)
+function Net.unwatchAll(self)
   local watching = self.watching
   for id in pairs(watching) do
     watching[id] = nil
@@ -703,8 +703,10 @@ local function fake_transmit(name) --
   return function(...) tui.print("hwS", name, ...) end
 end
 
-local function newLink(name, key, hw)
-  if managed[name] then return nil, "link existed" end
+local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Net = Net, Msg = Msg, of = managed}
+
+function M.newNet(name, key, hw)
+  if managed[name] then return nil, "Net existed" end
   if hw == nil then
     hw = peripheral.find("modem", peripheral.wrap)
   elseif type(hw) == "string" then
@@ -738,7 +740,7 @@ local function newLink(name, key, hw)
     id = ID,
     onConnected = utils.asEvent({}),
     -- message
-    msg = Msg, -- setmetatable(utils.assign({}, Link.msg), mt_Msg),
+    msg = Msg, -- setmetatable(utils.assign({}, Net.msg), mt_Msg),
     -- peers
     peer = {}, -- `nil`:manul, `false`:block, `*`:auto accept
     seen = {},
@@ -764,15 +766,19 @@ local function newLink(name, key, hw)
     cmdack = {},
     cmdhist = {},
     -- defaults
-    chid = Link.chid,
-    idch = Link.idch,
+    chid = Net.chid,
+    idch = Net.idch,
     reportAge = 0.25
   }
   self.checker.link = self
   -- self.finder.link = self
-  setmetatable(self, mt_Link)
+  setmetatable(self, mt_Net)
   managed[name] = self
   return self
+end
+
+function M.newMsg()
+  return setmetatable(utils.assign({}, Msg), mt_Msg)
 end
 
 -- [(m*16+n):1][name:n][crypt([sum(cls,lch,rch,body):4][cls:1][body])]
@@ -819,12 +825,6 @@ local function receive()
     end
     return pcall(handle, link, id, enc(unpack(body)))
   end
-end
-
-local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Link = Link, Msg = Msg, new = newLink, of = managed}
-
-function M.newMsg()
-  return setmetatable(utils.assign({}, Msg), mt_Msg)
 end
 
 function M.main() while true do receive() end end

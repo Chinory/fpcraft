@@ -62,27 +62,27 @@ end
 --   if not killable then shutdown() end
 -- end
 
--- Link Instance
-local lnk = link.new("a3", "a")
+-- Net Instance
+local net = link.newNet("a3", "a")
 local peer = {}
 for i = 1, 32 do
   peer[i] = true
 end
-lnk.peer = peer
+net.peer = peer
 
 function ez.reboot()
-  lnk:closeAll()
+  net:closeAll()
   os.reboot()
 end
 
 function ez.reboots()
-  lnk:sendCmd("os.reboot()", utils.keys(lnk.seen))
+  net:sendCmd("os.reboot()", utils.keys(net.seen))
   os.reboot()
 end
 
-if lnk.hw.open then
-  lnk.hw.open(lnk.idch(ID))
-  lnk.hw.open(65535)
+if net.hw.open then
+  net.hw.open(net.idch(ID))
+  net.hw.open(65535)
 end
 
 -- proc.create(main_kill)
@@ -90,9 +90,9 @@ proc.create(link.main)
 proc.create(timer.main)
 
 if turtle.fake then
-  lnk.showlog = true
+  net.showlog = true
   proc.create(term_main)
-  ez.l = lnk
+  ez.l = net
   tui.print("fxcraft Client 1.0")
 else
   proc.create(inv.main)
@@ -123,12 +123,12 @@ else
     end
   end)
   -- JOIN link AND inv
-  table.insert(lnk.onConnected, function(self, id) --
+  table.insert(net.onConnected, function(self, id) --
     return self:send(id, self.msg.InvData, utils.ser(inv.mySum()))
   end)
   table.insert(inv.onUpdate, function()
     local t = inv.mySum()
-    return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
+    return net:sendAll(net.msg.InvData, utils.ser(t))
   end)
   -- table.insert(lnk.finder.ids, 1)
 end
