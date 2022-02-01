@@ -332,7 +332,7 @@ function Msg.ConnReq(self, id, body)
   })
 
   if peer then
-    return self:accept(id)
+    self:accept(id)
   else
     self:report("Conn From @", id, 1)
   end
@@ -384,7 +384,7 @@ function Msg.ConnAcpt(self, id, body, dist)
 
   self:report("Conn Acpt @", id, 1)
 
-  self:onConnected(id)
+  return self:onConnected(id)
 end
 
 ------- ConnEstb Handler ----------------------------------
@@ -408,7 +408,7 @@ function Msg.ConnEstb(self, id, body, dist, ksrx)
 
   self:report("Conn Estb @", id, 1)
 
-  self:onConnected(id)
+  return self:onConnected(id)
 end
 
 ------- ConnClose Sender -------------------------------------
@@ -450,7 +450,7 @@ end
 
 function Msg.ConnClose(self, id)
   self:report("Conn Close @", id, 1)
-  return self:kill(id)
+  self:kill(id)
 end
 
 ------- ConnAlive Sender -----------------------------------
@@ -587,7 +587,7 @@ function Msg.CmdReq(self, id, body, dist, ksrx)
   createCmdTask(self, id, cid, code)
   -- os.queueEvent()
   self:heard(id, dist, ksrx)
-  return self:send(id, self.msg.CmdAck, u16bes(cid))
+  self:send(id, self.msg.CmdAck, u16bes(cid))
 end
 
 function Msg.CmdAck(self, id, body, dist, ksrx)
