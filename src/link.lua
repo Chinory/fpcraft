@@ -777,8 +777,7 @@ end
 
 -- [(m*16+n):1][name:n][crypt([sum(cls,lch,rch,body):4][cls:1][body])]
 local function receive()
-  local lch, rch, pkg, dist, link
-  , m, n
+  local lch, rch, pkg, dist, link, m, n
   while true do
     _, _, lch, rch, pkg, dist = os.pullEvent("modem_message")
     if type(pkg) == "string" then
@@ -813,12 +812,12 @@ local function receive()
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
-    body = enc(unpack(body)) -- drop table
-    if pcall(handle, link, id, body) and m == WEP_LNK then
+    if m == WEP_LNK then
       link.seen[id] = clock()
       link.dist[id] = dist
       link.ksrx[id] = rc4_save(ks)
     end
+    return pcall(handle, link, id, enc(unpack(body)))
   end
 end
 
