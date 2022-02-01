@@ -465,12 +465,6 @@ end
 
 ------- ConnAlive Handler ----------------------------------
 
-function Link.heard(self, id, dist, ks)
-  self.seen[id] = clock()
-  self.dist[id] = dist
-  self.ksrx[id] = rc4_save(ks)
-end
-
 function Msg.ConnAlive() end
 
 ------- ConnCheck Sender -----------------------------------
@@ -821,7 +815,9 @@ local function receive()
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
     body = enc(unpack(body)) -- drop table
     if pcall(handle, link, id, body, dist, ks) and m == WEP_LNK then
-      link:heard(id, dist, ks)
+      link.seen[id] = clock()
+      link.dist[id] = dist
+      link.ksrx[id] = rc4_save(ks)
     end
   end
 end
