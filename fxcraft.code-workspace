@@ -27,5 +27,8 @@
 		"vscode-lua-format.configPath": "vscode-lua-format.yml",
 		"lua-local.interpreter": "lua5.1",
 		"lua.debug.settings.luaVersion": "5.1",
+		"lua.debug.settings.path": [
+			"src\\?.lua"
+		],
 	}
 }
