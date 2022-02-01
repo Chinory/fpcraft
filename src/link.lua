@@ -471,9 +471,7 @@ function Link.heard(self, id, dist, ks)
   self.ksrx[id] = rc4_save(ks)
 end
 
-function Msg.ConnAlive(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
-end
+function Msg.ConnAlive() end
 
 ------- ConnCheck Sender -----------------------------------
 
@@ -486,8 +484,7 @@ end
 
 ------- ConnCheck Handler ----------------------------------
 
-function Msg.ConnCheck(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
+function Msg.ConnCheck(self, id)
   self:hint(id)
 end
 
@@ -575,35 +572,30 @@ local function createCmdTask(self, id, cid, code)
   end)
 end
 
-function Msg.CmdReq(self, id, body, dist, ksrx)
+function Msg.CmdReq(self, id, body)
   if #body < 2 then return end
   local cid = besu16(sub(body, 1, 2))
   local code = sub(body, 3)
   createCmdTask(self, id, cid, code)
   -- os.queueEvent()
-  self:heard(id, dist, ksrx)
   self:send(id, self.msg.CmdAck, u16bes(cid))
 end
 
-function Msg.CmdAck(self, id, body, dist, ksrx)
+function Msg.CmdAck(self, id, body)
   if #body ~= 2 then return end
   local cid = besu16(body)
   self.cmdack[id] = cid
-  -- os.queueEvent("link.CmdAck", self.name, id)
-  self:heard(id, dist, ksrx)
 end
 
 local CMDRES_ST = {"OK","Err","Bad"}
 local CMDRES_PO = {3,1,2}
 
 
-function Msg.CmdRes(self, id, body, dist, ksrx)
+function Msg.CmdRes(self, id, body)
   if #body < 3 then return end
   local cid = besu16(sub(body, 1, 2))
   local status = CMDRES_ST[dec(body,3,3)] or "Unk"
   local result = sub(body, 4)
-  -- os.queueEvent("link.CmdRes", self.name, cid)
-  self:heard(id, dist, ksrx)
   self:report('$'..cid..' '..status..' '..result.." @", id)
 end
 
@@ -660,36 +652,31 @@ function Link.unwatchAll(self)
 end
 
 ------- Log Handler -----------------------------------
-function Msg.LogData(self, id, body, dist, ksrx)
+function Msg.LogData(self, id, body)
   if self.watching[id] then
-    self:heard(id, dist, ksrx)
-    return tui.print('\25'..body)--bad performance
+    tui.print('\25'..body)--bad performance
   end
 end
 
-function Msg.LogClear(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
+function Msg.LogClear(self)
   local logs = self.logs
   for i = 1, #logs do logs[i] = "" end
 end
 
-function Msg.LogWatch(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
+function Msg.LogWatch(self, id)
   if self.watcher[id] == nil then
     self.watcher[id] = true
     self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n\25"))
   end
 end
 
-function Msg.LogWatchQ(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
+function Msg.LogWatchQ(self, id)
   if self.watcher[id] == nil then
     self.watcher[id] = true
   end
 end
 
-function Msg.LogUnwatch(self, id, _, dist, ksrx)
-  self:heard(id, dist, ksrx)
+function Msg.LogUnwatch(self, id)
   self.watcher[id] = nil
 end
 
@@ -832,7 +819,10 @@ local function receive()
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
-    return pcall(handle, link, id, enc(unpack(body)), dist, ks)
+    body = enc(unpack(body)) -- drop table
+    if pcall(handle, link, id, body, dist, ks) and m == WEP_LNK then
+      link:heard(id, dist, ks)
+    end
   end
 end
 
