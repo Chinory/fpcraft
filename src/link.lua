@@ -377,8 +377,8 @@ function Msg.ConnAcpt(self, id, body, dist)
   local kss = rc4_save(ks0)
   self.ksrx[id] = kss
   self.kstx[id] = kss
-
-  self:saw(id, dist)
+  self.seen[id] = clock()
+  self.dist[id] = dist
 
   self.hws(tch, mch, pkg)
 
@@ -403,8 +403,8 @@ function Msg.ConnEstb(self, id, body, dist, ksrx)
   local kss = rc4_save(ksrx)
   self.ksrx[id] = kss
   self.kstx[id] = kss
-
-  self:saw(id, dist)
+  self.seen[id] = clock()
+  self.dist[id] = dist
 
   self:report("Conn Estb @", id, 1)
 
@@ -464,11 +464,6 @@ function Link.claim(self)
 end
 
 ------- ConnAlive Handler ----------------------------------
-
-function Link.saw(self, id, dist)
-  self.seen[id] = clock()
-  self.dist[id] = dist
-end
 
 function Link.heard(self, id, dist, ks)
   self.seen[id] = clock()
