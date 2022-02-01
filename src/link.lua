@@ -781,6 +781,12 @@ function M.newMsg()
   return setmetatable(utils.assign({}, Msg), mt_Msg)
 end
 
+local function recvConn(handle, link, id, body)
+  if not pcall(handle, link, id, body) then
+    link:close(id)
+  end
+end
+
 -- [(m*16+n):1][name:n][crypt([sum(cls,lch,rch,body):4][cls:1][body])]
 local function receive()
   local lch, rch, pkg, dist, link, m, n
@@ -818,11 +824,13 @@ local function receive()
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
-    if pcall(handle, link, id, enc(unpack(body)), dist, ks) and m == WEP_LNK then
+    if m == WEP_LNK then
       link.seen[id] = clock()
       link.dist[id] = dist
       link.ksrx[id] = rc4_save(ks)
+      return recvConn(handle, link, id, enc(unpack(body)))
     end
+    return pcall(handle, link, id, enc(unpack(body)), dist, ks)
   end
 end
 
