@@ -837,7 +837,7 @@ local function receive()
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
-    return handle(link, id, enc(unpack(body)), dist, ks)
+    return pcall(handle, link, id, enc(unpack(body)), dist, ks)
   end
 end
 
