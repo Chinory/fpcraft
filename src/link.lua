@@ -691,13 +691,13 @@ local function checker_timer(t)
   timer.once(t)
 end
 
-local function finder_timer(t)
-  local self = t.link
-  for _, id in ipairs(t.ids) do
-    if not self.seen[id] and id ~= self.id then self:connect(id) end
-  end
-  timer.once(t)
-end
+-- local function finder_timer(t)
+--   local self = t.link
+--   for _, id in ipairs(t.ids) do
+--     if not self.seen[id] and id ~= self.id then self:connect(id) end
+--   end
+--   timer.once(t)
+-- end
 
 local function fake_transmit(name) --
   return function(...) tui.print("hwS", name, ...) end
@@ -749,11 +749,11 @@ local function newLink(name, key, hw)
       checkTime = 6,
       closeTime = 12
     }),
-    finder = timer.once({
-      timerFn = finder_timer,
-      timerIv = 10,
-      ids = {}
-    }),
+    -- finder = timer.once({
+    --   timerFn = finder_timer,
+    --   timerIv = 10,
+    --   ids = {}
+    -- }),
     -- logs
     logs = utils.newRing(24, ""),
     showlog = false,
@@ -769,7 +769,7 @@ local function newLink(name, key, hw)
     reportAge = 0.25
   }
   self.checker.link = self
-  self.finder.link = self
+  -- self.finder.link = self
   setmetatable(self, mt_Link)
   managed[name] = self
   return self

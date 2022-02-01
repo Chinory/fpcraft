@@ -130,7 +130,7 @@ else
     local t = inv.mySum()
     return lnk:sendAll(lnk.msg.InvData, utils.ser(t))
   end)
-  table.insert(lnk.finder.ids, 18)
+  -- table.insert(lnk.finder.ids, 1)
 end
 
 return proc.main()
