@@ -470,10 +470,7 @@ function Msg.ConnAlive() end
 ------- ConnCheck Sender -----------------------------------
 
 function Net.check(self, id)
-  if self.seen[id] then
-    self.seen[id] = clock() - self.checker.checkTime
-    self:send(id, self.msg.ConnCheck)
-  end
+  self:send(id, self.msg.ConnCheck)
 end
 
 ------- ConnCheck Handler ----------------------------------
@@ -685,7 +682,7 @@ local function checker_timer(t)
       self:report("Conn Lost @", id)
       self:close(id)
     elseif time > t.checkTime then
-      self:send(id, self.msg.ConnCheck)
+      self:check(id)
     end
   end
   timer.once(t)
@@ -782,8 +779,10 @@ function M.newMsg()
 end
 
 local function recvConn(handle, link, id, body)
-  if not pcall(handle, link, id, body) then
+  local ok, err = pcall(handle, link, id, body)
+  if not ok then
     link:close(id)
+    link:log("(!) Msg@" .. id .. " " .. body .. " " .. err)
   end
 end
 
