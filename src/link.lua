@@ -116,12 +116,12 @@ end
 
 ------- Convert ---------------------------------
 
-local function besu32(s)
-  local a, b, c, d = dec(s, 1, 4)
+local function u32dec(s,i,j)
+  local a, b, c, d = dec(s, i, j)
   return a * 0x1000000 + b * 0x10000 + c * 0x100 + d
 end
 
-local function u32bes(x)
+local function u32enc(x)
   local d = x % 256
   x = (x - d) / 256
   local c = x % 256
@@ -131,12 +131,12 @@ local function u32bes(x)
   return enc(x % 256, b, c, d)
 end
 
-local function besu16(s)
-  local a, b = dec(s, 1, 2)
+local function u16dec(s,i,j)
+  local a, b = dec(s, i, j)
   return a * 0x100 + b
 end
 
-local function u16bes(x)
+local function u16enc(x)
   local b = x % 256
   x = (x - b) / 256
   return enc(x % 256, b)
@@ -284,7 +284,7 @@ function Link.connect(self, ch, tmo_ms)
     time = now
   })
 
-  self:post(ch, self.msg.ConnReq, u32bes(tkpubl) .. u32bes(epoch()) .. u16bes(tmo_ms))
+  self:post(ch, self.msg.ConnReq, u32enc(tkpubl) .. u32enc(epoch()) .. u16enc(tmo_ms))
   self:log("Conn Start " .. now)
   return tkpubl
 end
@@ -306,11 +306,11 @@ function Msg.ConnReq(self, id, body)
   local peer = self.peer[id]
   if peer == false then return end
 
-  local time = besu32(sub(body, 5, 8))
+  local time = u32dec(body, 5, 8)
   local duration = epoch() - time
   if duration < 0 then return end
 
-  local tmo_ms = besu16(sub(body, 9, 10))
+  local tmo_ms = u16dec(body, 9, 10)
   local rem_ms = tmo_ms - duration
   if rem_ms < 0 then return end
 
@@ -328,7 +328,7 @@ function Msg.ConnReq(self, id, body)
     id = id,
     time = time,
     expire = clock() + rem_s,
-    tkpubl = besu32(sub(body, 1, 4))
+    tkpubl = u32dec(body, 1, 4)
   })
 
   if peer then
@@ -356,7 +356,7 @@ function Link.accept(self, id)
     timer.once(res)
   end
 
-  self:post(self.idch(id), self.msg.ConnAcpt, u32bes(res.tkpubl) .. u32bes(res.tkpriv))
+  self:post(self.idch(id), self.msg.ConnAcpt, u32enc(res.tkpubl) .. u32enc(res.tkpriv))
 end
 
 ------- ConnAcpt Handler -------------------------------------
@@ -365,13 +365,13 @@ function Msg.ConnAcpt(self, id, body, dist)
   if #body ~= 8 then return end
   if self.seen[id] then return end
 
-  local tkpubl = besu32(sub(body, 1, 4))
+  local tkpubl = u32dec(body, 1, 4)
   local lnrq = self.lnrq[tkpubl]
   if not lnrq then return end
 
   local tch = self.idch(id)
   local mch = self.idch(self.id)
-  local res = u32bes(nonce32()) .. sub(body, 5, 8)
+  local res = u32enc(nonce32()) .. sub(body, 5, 8)
   local ks0 = rc4_new(self.key)
   local pkg = wep_pkg(WEP_DTG, self.name, ks0, self.msg.ConnEstb, tch, mch, res)
   local kss = rc4_save(ks0)
@@ -394,7 +394,7 @@ function Msg.ConnEstb(self, id, body, dist, ksrx)
   local res = self.lnrs[id]
   if not res or not res.accepted then return end
 
-  local tkpriv = besu32(sub(body, 5, 8))
+  local tkpriv = u32dec(body, 5, 8)
   if tkpriv ~= res.tkpriv then return end
 
   timer.stop(res)
@@ -487,7 +487,7 @@ end
 local function sendCmd(self, code, ids)
   local cnt = self.cmdcnt + 1
   local usedCode =  sub(code,-1) == ')' and 'return ' .. code or code -- function tricks
-  local body = u16bes(cnt) .. usedCode
+  local body = u16enc(cnt) .. usedCode
   for _, id in ipairs(ids) do --
     self:send(id, self.msg.CmdReq, body)
   end
@@ -562,22 +562,22 @@ local function createCmdTask(self, id, cid, code)
       status = '\3'
       result = rex
     end
-    self:send(id, self.msg.CmdRes, u16bes(cid) .. status .. result)
+    self:send(id, self.msg.CmdRes, u16enc(cid) .. status .. result)
   end)
 end
 
 function Msg.CmdReq(self, id, body)
   if #body < 2 then return end
-  local cid = besu16(sub(body, 1, 2))
+  local cid = u16dec(body, 1, 2)
   local code = sub(body, 3)
   createCmdTask(self, id, cid, code)
   -- os.queueEvent()
-  self:send(id, self.msg.CmdAck, u16bes(cid))
+  self:send(id, self.msg.CmdAck, u16enc(cid))
 end
 
 function Msg.CmdAck(self, id, body)
   if #body ~= 2 then return end
-  local cid = besu16(body)
+  local cid = u16dec(body,1,2)
   self.cmdack[id] = cid
 end
 
@@ -587,7 +587,7 @@ local CMDRES_PO = {3,1,2}
 
 function Msg.CmdRes(self, id, body)
   if #body < 3 then return end
-  local cid = besu16(sub(body, 1, 2))
+  local cid = u16dec(body, 1, 2)
   local status = CMDRES_ST[dec(body,3,3)] or "Unk"
   local result = sub(body, 4)
   self:report('$'..cid..' '..status..' '..result.." @", id)
@@ -814,7 +814,7 @@ local function receive()
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
     body = enc(unpack(body)) -- drop table
-    if pcall(handle, link, id, body, dist, ks) and m == WEP_LNK then
+    if pcall(handle, link, id, body) and m == WEP_LNK then
       link.seen[id] = clock()
       link.dist[id] = dist
       link.ksrx[id] = rc4_save(ks)
