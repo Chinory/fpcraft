@@ -25,9 +25,8 @@ local M = { --
 
 function M.mySum() return sum(M._) end
 
-function link.Msg.InvData(self, id, body, dist, ksrx)
+function link.Msg.InvData(_, id, body)
   M[id] = body
-  self:heard(id, dist, ksrx)
 end
 
 function M.main()
