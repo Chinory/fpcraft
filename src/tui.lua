@@ -85,15 +85,15 @@ local function flush(self)
       its = concat(strs, ',', 2)
     end
   end
-  return print1(self.s .. its)
+  return self.func(self.obj, self.s .. its)
 end
 
-function M.report(s, it, age)
+function M.report(s, it, age, obj, func)
   local report = reports[s]
   if report then
     insert(report, it)
   else
-    reports[s] = timer.once({it, s = s, timerIv = age, timerFn = flush})
+    reports[s] = timer.once({it, s = s, timerIv = age, timerFn = flush, obj = obj, func = func})
   end
 end
 

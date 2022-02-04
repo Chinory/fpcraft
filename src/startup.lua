@@ -1,16 +1,16 @@
 -- Lua
-_G.utils = require("utils")
+_G.utils = require('utils')
 
 -- CraftOS
 _G.ID = os.getComputerID()
-_G.tui = require("tui")
-_G.proc = require("proc")
-_G.turtle = require("turtle")
-_G.axis = require("axis")
-_G.inv = require("inv")
-_G.act = require("act")
-_G.link = require("link")
-_G.timer = require("timer")
+_G.tui = require('tui')
+_G.proc = require('proc')
+_G.turtle = require('turtle')
+_G.axis = require('axis')
+_G.inv = require('inv')
+_G.act = require('act')
+_G.link = require('link')
+_G.timer = require('timer')
 
 -- Debug
 _G.ez = setmetatable({}, {__index = _G})
@@ -29,25 +29,28 @@ utils.assign(ez, utils)
 -- Local Term
 local function term_main(exitable)
   local history = {}
-  local prefix = '\7' .. ID .. ">"
+  local prefix = '\7' .. ID .. '>'
   while true do
     local str = tui.read(prefix, nil, history, tui.completeLua)
-    if str == "" then
+    if str == '' then
       if exitable then break end
     else
       table.insert(history, str)
       if #history > 31 then for _ = 1, 12 do table.remove(history) end end
       if string.sub(str,-1) == ')' then str = 'return ' .. str end -- function tricks
-      local code = loadstring(str)
-      if code then
-        local res = {pcall(setfenv(code, ez))}
+      local fn, rex = loadstring(str)
+      if fn then
+        local res = {pcall(setfenv(fn, ez))}
         local ok = table.remove(res, 1)
         local t = math.floor(os.time() * 10)
         if ok then
-          tui.print("@" .. ID .. " " .. t .. " OK " .. utils.ser(res))
+          tui.print('\7' .. ID .. ' ' .. t .. ' OK ' .. utils.ser(res))
         else
-          tui.print("@" .. ID .. " " .. t .. " ERR " .. res[1])
+          tui.print('\7' .. ID .. ' ' .. t .. ' Err ' .. (res[1] or '?'))
         end
+      else
+        local t = math.floor(os.time() * 10)
+        tui.print('\7' .. ID .. ' ' .. t .. ' Bad ' .. rex)
       end
     end
   end
@@ -58,12 +61,12 @@ end
 -- killable = nil
 -- local shutdown = os.shutdown
 -- local function main_kill()
---   os.pullEventRaw("terminate")
+--   os.pullEventRaw('terminate')
 --   if not killable then shutdown() end
 -- end
 
 -- Net Instance
-local net = link.newNet("a3", "a")
+local net = link.newNet('a3', 'a')
 local peer = {}
 for i = 1, 32 do
   peer[i] = true
@@ -76,7 +79,7 @@ function ez.reboot()
 end
 
 function ez.reboots()
-  net:sendCmd("os.reboot()", utils.keys(net.seen))
+  net:sendCmd('os.reboot()', utils.keys(net.seen))
   os.reboot()
 end
 
@@ -93,24 +96,23 @@ if turtle.fake then
   net.showlog = true
   proc.create(term_main)
   ez.l = net
-  tui.print("fxcraft Client 1.0")
+  tui.print('fxcraft Client 1.0')
 else
   proc.create(inv.main)
   proc.create(function()
-    local s = ""
+    local s = ''
     while true do
       term.clear()
       term.setCursorPos(1, 1)
-      tui.print("fxcraft Server 1.0")
+      tui.print('fxcraft Server 1.0')
       tui.print(s)
-      s = ""
-      local name = tui.read("> UserName: ")
-      local key = tui.read("> Password: ", "*")
+      s = ''
+      local name = tui.read('> UserName: ')
+      local key = tui.read('> Password: ', '*')
       local ln = link.of[name]
       if ln and ln.key == key then
         ez.l = ln
         ln.showlog = true
-        ln.logs:sort()
         for _, l in ipairs(ln.logs) do
           tui.print('\7'..l)
         end
@@ -118,7 +120,7 @@ else
         ln.showlog = false
       else
         os.sleep(3)
-        s = " Wrong username or password"
+        s = ' Wrong username or password'
       end
     end
   end)

@@ -150,49 +150,6 @@ local M = {
   Ge = function(x, y) return function(...) return x(...) >= y(...) end end,
 }
 
----- ring list ----
-
-local Ring = {}
-
-function Ring.sort(t)
-  local i = t[0]
-  if i + i < #t then
-    for _ = 2, i do insert(t, remove(t, 1)) end
-  else
-    for _ = i, #t do insert(t, 1, remove(t)) end
-  end
-  t[0] = 1
-  return t
-end
-
-function Ring.write(t, v)
-  local i = t[0]
-  t[i] = v
-  i = i + 1
-  if i > #t then i = 1 end
-  t[0] = i
-  return t
-end
-
-local mt_Ring = {__index = Ring}
-
-function M.newRing(n, d)
-  local t = {[0] = 1}
-  for i = 1, n do t[i] = d end
-  return setmetatable(t, mt_Ring)
-end
-
----- Set ----
-
-local mt_Set = {
-  __tostring = function(t)
-    return "{" .. concat(keys(t), ",") .. "}"
-  end
-}
-
-function M.asSet(t)
-  return setmetatable(t, mt_Set)
-end
 
 ---- event dispatcher ----
 
@@ -208,16 +165,16 @@ end
 
 ---- task queue ----
 
-local mt_TaskQueue = {
-  __call = function(self)
-    local f = remove(self, 1)
-    if f then return f() end
-  end
-}
+-- local mt_TaskQueue = {
+--   __call = function(self)
+--     local f = remove(self, 1)
+--     if f then return f() end
+--   end
+-- }
 
-function M.asTaskQueue(t)
-  return setmetatable(t, mt_TaskQueue)
-end
+-- function M.asTaskQueue(t)
+--   return setmetatable(t, mt_TaskQueue)
+-- end
 
 ---- Lua-lang ----
 

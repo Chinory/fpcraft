@@ -2,12 +2,12 @@ local tui = require("tui")
 local utils = require("utils")
 local timer = require("timer")
 local proc = require("proc")
-local stat = require("stat")
 local enc = string.char
 local dec = string.byte
 local sub = string.sub
+local gmatch = string.gmatch
 local unpack = table.unpack
--- local insert = table.insert
+local insert = table.insert
 local remove = table.remove
 local concat = table.concat
 local random = math.random
@@ -19,7 +19,7 @@ local bxor = bit32.bxor
 local gtime = os.time
 local clock = os.clock
 local epoch0 = os.epoch
-local EPOCH = 1642237830090
+local EPOCH = 1644016299351
 local function epoch() return epoch0("utc") - EPOCH end
 
 ------- Crypto ------------------------------
@@ -201,7 +201,7 @@ local mt_Msg = {
 
 local Msg = setmetatable({}, mt_Msg)
 
-local Net = {chid = utils.id, idch = utils.id}
+local Net = {msg = Msg, chid = utils.id, idch = utils.id, reportAge = 0.25}
 
 local mt_Net = {
   __index = Net,
@@ -527,9 +527,15 @@ function Net.ssh(self, ...)
   if #ids == 0 then
     ids = utils.keys(self.seen)
   end
-  table.sort(ids)
-  local prefix = '\18' .. utils.prettySortedInts(ids) .. ">"
-  self:watch(unpack(ids))
+  local prefix
+  if #ids == 1 then
+    prefix = '\18' .. ids[1] .. '>'
+    self:watchCat(ids[1])
+  else
+    table.sort(ids)
+    prefix = '\18' .. utils.prettySortedInts(ids) .. '>'
+    self:watch(unpack(ids))
+  end
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.completeLua)
     if code == "" then break end
@@ -553,7 +559,7 @@ local function createCmdTask(self, id, cid, code)
         result = utils.ser(res)
       else
         status = '\2'
-        result = res[1]
+        result = res[1] or '?'
       end
     else
       status = '\3'
@@ -593,78 +599,105 @@ end
 
 ------- Log Sender ------------------------------------
 
-function Net.log(self, str)
-  str = self.id .. ' ' .. str
-  self.logs:write(str)
-  for id in pairs(self.watcher) do self:send(id, self.msg.LogData, str) end
-  if self.showlog then tui.print('\7' .. str) end
-end
-
-function Net.report(self, fmt, var, age)
+function Net.log(self, log)
+  local t = self.logs
+  if #t > 15 then remove(t, 1) end
+  log = tostring(log)
+  insert(t, log)
+  for id in pairs(self.watcher) do
+    self:send(id, self.msg.LogData, log)
+  end
   if self.showlog then
-    return tui.report('\7'..self.id..' '..fmt, var, age or self.reportAge)
+    tui.print('\7'..self.id..' '..log)
   end
 end
 
-function Net.clearLog(self, ...)
-  for _, id in ipairs({...}) do self:send(id, self.msg.LogClear) end
+function Net.report(self, s, it, age)
+  tui.report(s, it, age or self.reportAge, self, self.log)
+end
+
+local function printLogs(self, id)
+  local pre = '\7'..id..' '
+  for _, log in self.logs do
+    tui.print(pre..log)
+  end
+end
+
+function Net.cat(self, id)
+  if id == nil then
+    printLogs(self, self.id)
+  elseif id == self.id then
+    printLogs(self, id)
+  else
+    self:send(id, self.msg.LogCat)
+  end
 end
 
 function Net.watch(self, ...)
   local watchee = self.watchee
-  local list = {...}
-  local msg = #list > 1 and self.msg.LogWatchQ or self.msg.LogWatch
-  for _, id in ipairs(list) do
-    local lv = (watchee[id] or 0) + 1
-    if lv == 1 then
+  local msg = self.msg.LogWatch
+  for _, id in ipairs({...}) do
+    local n = watchee[id]
+    if n == nil then
+      watchee[id] = 1
       self:send(id, msg)
+    else
+      watchee[id] = n + 1
     end
-    watchee[id] = lv
   end
+end
+
+function Net.watchCat(self, id)
+  local watchee = self.watchee
+  watchee[id] = (watchee[id] or 0) + 1
+  self:send(id, self.msg.LogWatchCat)
 end
 
 function Net.unwatch(self, ...)
   local watchee = self.watchee
+  local msg = self.msg.LogUnwatch
   for _, id in ipairs({...}) do
-    local lv = (watchee[id] or 0) - 1
-    if lv == 0 then
-      self:send(id, self.msg.LogUnwatch)
+    local n = watchee[id]
+    if n then
+      if n > 1 then
+        watchee[id] = n - 1
+      else
+        watchee[id] = nil
+        self:send(id, msg)
+      end
     end
-    watchee[id] = lv
   end
 end
 
 function Net.unwatchAll(self)
   local watchee = self.watchee
+  local msg = self.msg.LogUnwatch
   for id in pairs(watchee) do
     watchee[id] = nil
-    self:send(id, self.msg.LogUnwatch)
+    self:send(id, msg)
   end
 end
 
 ------- Log Handler -----------------------------------
+
 function Msg.LogData(self, id, body)
-  if self.watchee[id] then
-    tui.print('\25 '..id..' '..body)
+  local pre = '\25'..id..' '
+  for log in gmatch(body, '[^\0]+') do
+    tui.print(pre..log)
   end
 end
 
-function Msg.LogClear(self)
-  local logs = self.logs
-  for i = 1, #logs do logs[i] = "" end
+function Msg.LogCat(self, id)
+  self:send(id, self.msg.LogData, concat(self.logs, '\0'))
 end
 
 function Msg.LogWatch(self, id)
-  if self.watcher[id] == nil then
-    self.watcher[id] = true
-    self:send(id, self.msg.LogData, concat(self.logs), "\n\25"))
-  end
+  self.watcher[id] = true
 end
 
-function Msg.LogWatchQ(self, id)
-  if self.watcher[id] == nil then
-    self.watcher[id] = true
-  end
+function Msg.LogWatchCat(self, id)
+  self.watcher[id] = true
+  self:send(id, self.msg.LogData, concat(self.logs, '\0'))
 end
 
 function Msg.LogUnwatch(self, id)
@@ -696,11 +729,13 @@ end
 --   timer.once(t)
 -- end
 
-local function fake_transmit(name) --
-  return function(...) tui.print("hwS", name, ...) end
+local function FakeTransmit(name) --
+  return function(...)
+    error('fake transmit from ' .. name .. ' ' .. utils.ser({...}), 2)
+  end
 end
 
-local M = {WEP_DTG = WEP_DTG, WEP_LNK = WEP_LNK, Net = Net, Msg = Msg, of = managed}
+local M = {Net = Net, Msg = Msg, of = managed}
 
 function M.newNet(name, key, hw)
   if managed[name] then return nil, "Net existed" end
@@ -713,11 +748,11 @@ function M.newNet(name, key, hw)
   if type(hw) == "table" then
     hws = hw.transmit
     if type(hws) ~= "function" then --
-      hws = fake_transmit(name)
+      hws = FakeTransmit(name)
       hw = {fake = true}
     end
   else
-    hws = fake_transmit(name)
+    hws = FakeTransmit(name)
     hw = {fake = true}
   end
   -- create the net object
@@ -736,39 +771,33 @@ function M.newNet(name, key, hw)
     key = key,
     id = ID,
     onConnected = utils.asEvent({}),
-    -- message
-    msg = Msg, -- setmetatable(utils.assign({}, Net.msg), mt_Msg),
     -- peers
     peer = {}, -- `nil`:manul, `false`:block, `*`:auto accept
     seen = {},
     dist = {},
-    checker = timer.once({
-      timerFn = checker_timer,
-      timerIv = 2,
-      checkTime = 6,
-      closeTime = 12
-    }),
-    -- finder = timer.once({
-    --   timerFn = finder_timer,
-    --   timerIv = 10,
-    --   ids = {}
-    -- }),
     -- logs
-    logs = utils.newRing(24, ""),
+    logs = {},
     showlog = false,
-    watcher = utils.asSet({}),
-    watchee = utils.asSet({}),
+    watcher = {},
+    watchee = {},
     -- command
     cmdcnt = 0,
     cmdack = {},
     cmdhist = {},
-    -- defaults
-    chid = Net.chid,
-    idch = Net.idch,
-    reportAge = 0.25
   }
-  self.checker.net = self
-  -- self.finder.net = self
+  self.checker = timer.once({
+    timerFn = checker_timer,
+    timerIv = 2,
+    checkTime = 6,
+    closeTime = 12,
+    net = self
+  })
+  -- self.finder = timer.once({
+  --   timerFn = finder_timer,
+  --   timerIv = 10,
+  --   ids = {},
+  --   net = self
+  -- })
   setmetatable(self, mt_Net)
   managed[name] = self
   return self
@@ -782,7 +811,7 @@ local function recvConn(handle, net, id, body)
   local ok, err = pcall(handle, net, id, body)
   if not ok then
     net:close(id)
-    net:log("(!) Msg@" .. id .. " " .. body .. " " .. err)
+    net:log("\19 Msg@" .. id .. " " .. body .. " " .. err)
   end
 end
 

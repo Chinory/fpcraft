@@ -40,7 +40,7 @@ function M.main()
       if task.ev == nil or task.ev == evdata[1] then
         local ok, ev = coroutine.resume(task.co, unpack(evdata)) --foreign
         if not ok then
-          tui.print("(!) " .. ev)
+          tui.print("\19 " .. ev)
           managed[id] = nil
           M.n = M.n - 1
         elseif coroutine.status(task.co) == "dead" then
