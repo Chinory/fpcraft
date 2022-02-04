@@ -585,8 +585,6 @@ function Msg.CmdAck(self, id, body)
 end
 
 local CMDRES_ST = {"OK","Err","Bad"}
-local CMDRES_PO = {3,1,2}
-
 
 function Msg.CmdRes(self, id, body)
   if #body < 3 then return end
