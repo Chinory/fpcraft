@@ -419,7 +419,7 @@ function Net.kill(self, id)
   self.seen[id] = nil
   self.dist[id] = nil
   self.watcher[id] = nil
-  self.watching[id] = nil
+  self.watchee[id] = nil
 end
 
 local function byebye(self, id, kss)
@@ -611,41 +611,41 @@ function Net.clearLog(self, ...)
 end
 
 function Net.watch(self, ...)
-  local watching = self.watching
+  local watchee = self.watchee
   local list = {...}
   local msg = #list > 1 and self.msg.LogWatchQ or self.msg.LogWatch
   for _, id in ipairs(list) do
-    local lv = (watching[id] or 0) + 1
+    local lv = (watchee[id] or 0) + 1
     if lv == 1 then
       self:send(id, msg)
     end
-    watching[id] = lv
+    watchee[id] = lv
   end
 end
 
 function Net.unwatch(self, ...)
-  local watching = self.watching
+  local watchee = self.watchee
   for _, id in ipairs({...}) do
-    local lv = (watching[id] or 0) - 1
+    local lv = (watchee[id] or 0) - 1
     if lv == 0 then
       self:send(id, self.msg.LogUnwatch)
     end
-    watching[id] = lv
+    watchee[id] = lv
   end
 end
 
 function Net.unwatchAll(self)
-  local watching = self.watching
-  for id in pairs(watching) do
-    watching[id] = nil
+  local watchee = self.watchee
+  for id in pairs(watchee) do
+    watchee[id] = nil
     self:send(id, self.msg.LogUnwatch)
   end
 end
 
 ------- Log Handler -----------------------------------
 function Msg.LogData(self, id, body)
-  if self.watching[id] then
-    tui.print('\25'..body)--bad performance
+  if self.watchee[id] then
+    tui.print('\25 '..id..' '..body)
   end
 end
 
@@ -657,7 +657,7 @@ end
 function Msg.LogWatch(self, id)
   if self.watcher[id] == nil then
     self.watcher[id] = true
-    self:send(id, self.msg.LogData, concat(self.logs:sort(), "\n\25"))
+    self:send(id, self.msg.LogData, concat(self.logs), "\n\25"))
   end
 end
 
@@ -757,7 +757,7 @@ function M.newNet(name, key, hw)
     logs = utils.newRing(24, ""),
     showlog = false,
     watcher = utils.asSet({}),
-    watching = utils.asSet({}),
+    watchee = utils.asSet({}),
     -- command
     cmdcnt = 0,
     cmdack = {},
