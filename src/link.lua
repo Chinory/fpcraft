@@ -257,11 +257,11 @@ end
 ------- ConnReq Sender -------------------------------------
 
 local function lnrq_tmo(self)
-  local tbl = self.link.lnrq
+  local tbl = self.net.lnrq
   local key = self.tkpubl
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn End " .. self.time)
+    self.net:log("Conn End " .. self.time)
   end
 end
 
@@ -277,7 +277,7 @@ function Net.connect(self, ch, tmo_ms)
   self.lnrq[tkpubl] = timer.once({
     timerFn = lnrq_tmo,
     timerIv = tmo_ms / 1000,
-    link = self,
+    net = self,
     ch = ch,
     tkpubl = tkpubl,
     clock = clock(),
@@ -292,11 +292,11 @@ end
 ------- ConnReq Handler -------------------------------------
 
 local function lnrs_tmo(self)
-  local tbl = self.link.lnrs
+  local tbl = self.net.lnrs
   local key = self.id
   if tbl[key] == self then
     tbl[key] = nil
-    self.link:log("Conn From " .. self.id .. " Expr")
+    self.net:log("Conn From " .. self.id .. " Expr")
   end
 end
 
@@ -324,7 +324,7 @@ function Msg.ConnReq(self, id, body)
   self.lnrs[id] = timer.once({
     timerFn = lnrs_tmo,
     timerIv = rem_s,
-    link = self,
+    net = self,
     id = id,
     time = time,
     expire = clock() + rem_s,
@@ -675,7 +675,7 @@ end
 
 local function checker_timer(t)
   local now = clock()
-  local self = t.link
+  local self = t.net
   for id, time in pairs(self.seen) do
     time = now - time
     if time > t.closeTime then
@@ -689,7 +689,7 @@ local function checker_timer(t)
 end
 
 -- local function finder_timer(t)
---   local self = t.link
+--   local self = t.net
 --   for _, id in ipairs(t.ids) do
 --     if not self.seen[id] and id ~= self.id then self:connect(id) end
 --   end
@@ -720,7 +720,7 @@ function M.newNet(name, key, hw)
     hws = fake_transmit(name)
     hw = {fake = true}
   end
-  -- create the link object
+  -- create the net object
   local self = {
     -- core:hardware
     hw = hw,
@@ -728,7 +728,7 @@ function M.newNet(name, key, hw)
     -- core:crypt
     kstx = {},
     ksrx = {},
-    -- core:link
+    -- core:net
     lnrq = {},
     lnrs = {},
     -- config
@@ -767,8 +767,8 @@ function M.newNet(name, key, hw)
     idch = Net.idch,
     reportAge = 0.25
   }
-  self.checker.link = self
-  -- self.finder.link = self
+  self.checker.net = self
+  -- self.finder.net = self
   setmetatable(self, mt_Net)
   managed[name] = self
   return self
@@ -778,24 +778,24 @@ function M.newMsg()
   return setmetatable(utils.assign({}, Msg), mt_Msg)
 end
 
-local function recvConn(handle, link, id, body)
-  local ok, err = pcall(handle, link, id, body)
+local function recvConn(handle, net, id, body)
+  local ok, err = pcall(handle, net, id, body)
   if not ok then
-    link:close(id)
-    link:log("(!) Msg@" .. id .. " " .. body .. " " .. err)
+    net:close(id)
+    net:log("(!) Msg@" .. id .. " " .. body .. " " .. err)
   end
 end
 
 -- [(m*16+n):1][name:n][crypt([sum(cls,lch,rch,body):4][cls:1][body])]
 local function receive()
-  local lch, rch, pkg, dist, link, m, n
+  local lch, rch, pkg, dist, net, m, n
   while true do
     _, _, lch, rch, pkg, dist = os.pullEvent("modem_message")
     if type(pkg) == "string" then
       m = dec(pkg, 1)
       n = m % 16
-      link = managed[sub(pkg, 2, n + 1)]
-      if link then
+      net = managed[sub(pkg, 2, n + 1)]
+      if net then
         m = m - n
         n = n + 2
         break
@@ -803,14 +803,14 @@ local function receive()
     end
     pkg = nil
   end
-  local id = link.chid(rch)
+  local id = net.chid(rch)
   local ks
   if m == WEP_LNK then
-    ks = link.ksrx[id] -- kss
+    ks = net.ksrx[id] -- kss
     if not ks then return end
     ks = rc4_load(ks)
   elseif m == WEP_DTG then
-    ks = rc4_new(link.key)
+    ks = rc4_new(net.key)
   else
     return
   end
@@ -819,17 +819,17 @@ local function receive()
   if len < 0 then return end
   local sum = rc4_crypt_str2num(ks, pkg, n, n + 3)
   local cls = rc4_crypt_byte(ks, dec(pkg, ci))
-  local handle = link.msg[cls]
+  local handle = net.msg[cls]
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then
     if m == WEP_LNK then
-      link.seen[id] = clock()
-      link.dist[id] = dist
-      link.ksrx[id] = rc4_save(ks)
-      return recvConn(handle, link, id, enc(unpack(body)))
+      net.seen[id] = clock()
+      net.dist[id] = dist
+      net.ksrx[id] = rc4_save(ks)
+      return recvConn(handle, net, id, enc(unpack(body)))
     end
-    return pcall(handle, link, id, enc(unpack(body)), dist, ks)
+    return pcall(handle, net, id, enc(unpack(body)), dist, ks)
   end
 end
 
