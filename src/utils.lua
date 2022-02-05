@@ -257,34 +257,46 @@ sert = function(r,a)
   local o = {"{"}
   local n = serOptArrLen(a)
   for i = 1, n do
-    o[#o+1]=(a[i]~=nil and sera(r,a[i]) or "_") o[#o+1]= ","
+    insert(o, a[i] ~= nil and sera(r, a[i]) or "_")
+    insert(o, ",")
   end
   for k, v in pairs(a) do
     local t = type(k)
     if t == "number" then
       if k > n or k < 1 or k % 1 ~= 0 then
-        v = sera(r,v)
+        v = sera(r, v)
         if v then
-          o[#o+1]=("[" .. k .. "]=") o[#o+1]=v o[#o+1]=","
+          insert(o, "[" .. k .. "]=")
+          insert(o, v)
+          insert(o, ",")
         end
       end
     elseif t == "string" then
       v = sera(r,v)
       if v then
-        o[#o+1]=keystr(k) o[#o+1]="=" o[#o+1]=v o[#o+1]=","
+        insert(o, keystr(k))
+        insert(o, "=")
+        insert(o, v)
+        insert(o, ",")
       end
     elseif t == "table" then
       k = sert(r,k)
       if k then
         v = sera(r,v)
         if v then
-          o[#o+1]="[" o[#o+1]=k o[#o+1]="]=" o[#o+1]=v o[#o+1]=","
+          insert(o, "[")
+          insert(o, k)
+          insert(o, "]=")
+          insert(o, v)
+          insert(o, ",")
         end
       end
     elseif t == "boolean" then
       v = sera(r,v)
       if v then
-        o[#o+1]=(k and "[T]=" or "[F]=") o[#o+1]=v o[#o+1]=","
+        insert(o, k and "[T]=" or "[F]=")
+        insert(o, v)
+        insert(o, ",")
       end
     end
   end
