@@ -124,11 +124,11 @@ else
   end)
   -- JOIN link AND inv
   table.insert(net.onConnected, function(self, id) --
-    return self:send(id, self.msg.InvData, utils.ser(inv.mySum()))
+    return self:send(id, self.lnk.InvData, utils.ser(inv.mySum()))
   end)
   table.insert(inv.onUpdate, function()
     local t = inv.mySum()
-    return net:sendAll(net.msg.InvData, utils.ser(t))
+    return net:sendAll(net.lnk.InvData, utils.ser(t))
   end)
   -- table.insert(lnk.finder.ids, 1)
 end
