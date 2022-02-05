@@ -83,7 +83,7 @@ local function partial(func, ...)
     local args = {unpack(args0)}
     local i = 1
     for j = 1, #args do
-      if args[j] == "_" then
+      if args[j] == '_' then
         args[j] = args1[i]
         i = i + 1
       end
@@ -179,31 +179,31 @@ end
 ---- Lua-lang ----
 
 local KEYWORD = {
-  ["and"] = true,
-  ["break"] = true,
-  ["do"] = true,
-  ["else"] = true,
-  ["elseif"] = true,
-  ["end"] = true,
-  ["false"] = true,
-  ["for"] = true,
-  ["function"] = true,
-  ["if"] = true,
-  ["in"] = true,
-  ["local"] = true,
-  ["nil"] = true,
-  ["not"] = true,
-  ["or"] = true,
-  ["repeat"] = true,
-  ["return"] = true,
-  ["then"] = true,
-  ["true"] = true,
-  ["until"] = true,
-  ["while"] = true
+  ['and'] = true,
+  ['break'] = true,
+  ['do'] = true,
+  ['else'] = true,
+  ['elseif'] = true,
+  ['end'] = true,
+  ['false'] = true,
+  ['for'] = true,
+  ['function'] = true,
+  ['if'] = true,
+  ['in'] = true,
+  ['local'] = true,
+  ['nil'] = true,
+  ['not'] = true,
+  ['or'] = true,
+  ['repeat'] = true,
+  ['return'] = true,
+  ['then'] = true,
+  ['true'] = true,
+  ['until'] = true,
+  ['while'] = true
 }
 
 local function keystr(k)
-  return not KEYWORD[k] and match(k, "^[%a_][%a%d_]*$") or format("[%q]", k)
+  return not KEYWORD[k] and match(k, '^[%a_][%a%d_]*$') or format('[%q]', k)
 end
 
 local function serOptArrLen(t)
@@ -237,71 +237,71 @@ local sert
 
 local function sera(r,a)
   local t = type(a)
-  if t == "number" then
+  if t == 'number' then
     return tostr(a)
-  elseif t == "string" then
-    return format("%q", a)
-  elseif t == "table" then
+  elseif t == 'string' then
+    return format('%q', a)
+  elseif t == 'table' then
     if not r[a] then
       r[a] = true
       return sert(r,a)
     end
-  elseif t == "boolean" then
-    return a and "T" or "F"
-  elseif t == "function" then
-    return "(_)"
+  elseif t == 'boolean' then
+    return a and 'T' or 'F'
+  elseif t == 'function' then
+    return '(_)'
   end
 end
 
 sert = function(r,a)
-  local o = {"{"}
+  local o = {'{'}
   local n = serOptArrLen(a)
   for i = 1, n do
-    insert(o, a[i] ~= nil and sera(r, a[i]) or "_")
-    insert(o, ",")
+    insert(o, a[i] ~= nil and sera(r, a[i]) or '_')
+    insert(o, ',')
   end
   for k, v in pairs(a) do
     local t = type(k)
-    if t == "number" then
+    if t == 'number' then
       if k > n or k < 1 or k % 1 ~= 0 then
         v = sera(r, v)
         if v then
-          insert(o, "[" .. k .. "]=")
+          insert(o, '[' .. k .. ']=')
           insert(o, v)
-          insert(o, ",")
+          insert(o, ',')
         end
       end
-    elseif t == "string" then
+    elseif t == 'string' then
       v = sera(r,v)
       if v then
         insert(o, keystr(k))
-        insert(o, "=")
+        insert(o, '=')
         insert(o, v)
-        insert(o, ",")
+        insert(o, ',')
       end
-    elseif t == "table" then
+    elseif t == 'table' then
       k = sert(r,k)
       if k then
         v = sera(r,v)
         if v then
-          insert(o, "[")
+          insert(o, '[')
           insert(o, k)
-          insert(o, "]=")
+          insert(o, ']=')
           insert(o, v)
-          insert(o, ",")
+          insert(o, ',')
         end
       end
-    elseif t == "boolean" then
+    elseif t == 'boolean' then
       v = sera(r,v)
       if v then
-        insert(o, k and "[T]=" or "[F]=")
+        insert(o, k and '[T]=' or '[F]=')
         insert(o, v)
-        insert(o, ",")
+        insert(o, ',')
       end
     end
   end
-  if #o == 1 then return "{}" end
-  o[#o] = "}"
+  if #o == 1 then return '{}' end
+  o[#o] = '}'
   return concat(o)
 end
 
@@ -310,7 +310,7 @@ function M.ser(any)
 end
 
 function M.des(str)
-  local fn = loadstring("local _,T,F=nil,true,false return " .. str, "des")
+  local fn = loadstring('local _,T,F=nil,true,false return ' .. str, 'des')
   if fn then
     local ok, res = pcall(fn)
     if ok then return res end
@@ -319,9 +319,9 @@ end
 
 function M.prettyList(list)
   local nums = {}
-  local strs = {""}
+  local strs = {''}
   for _, x in ipairs(list) do
-    if type(x) == "number" then
+    if type(x) == 'number' then
       insert(nums, x)
     else
       insert(strs, x)
@@ -361,7 +361,7 @@ function M.prettySortedInts(I)
     end
   end
   for _, x in ipairs(I) do
-    if type(x) ~= "number" then
+    if type(x) ~= 'number' then
       clear()
     elseif e then
       if x - e == 1 then
