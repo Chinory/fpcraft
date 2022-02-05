@@ -165,6 +165,8 @@ local WEP_DTG = 0x10
 
 local WEP_LNK = 0x20
 
+local PLAIN1 = 0x30
+
 ------- Base ------------------------------------
 
 local managed = setmetatable({}, {__mode = "v"})
@@ -184,6 +186,10 @@ local function wep_pkg(mode, name, ks, cls, ch, rch, body)
   return enc(mode + #name) .. name .. cmac .. body
 end
 
+local function pub_pkg(name, cls, body)
+  return enc(PLAIN1 + #name) .. name .. enc(cls) .. (body or '')
+end
+
 ------- Prototype ----------------------------------
 
 local mt_Msg = {
@@ -199,9 +205,10 @@ local mt_Msg = {
   end
 }
 
-local Msg = setmetatable({}, mt_Msg)
-
-local Net = {msg = Msg, chid = utils.id, idch = utils.id, reportAge = 0.25}
+local Lnk = setmetatable({}, mt_Msg)
+local Dtg = setmetatable({}, mt_Msg)
+local Pub  = setmetatable({}, mt_Msg)
+local Net = {lnk = Lnk, dtg = Dtg, pub = Pub, chid = utils.id, idch = utils.id, reportAge = 0.25}
 
 local mt_Net = {
   __index = Net,
@@ -210,7 +217,7 @@ local mt_Net = {
 }
 
 function Net.post(self, ch, cls, body)
-  local rch = self.idch(self.id)
+  local rch = self.mych
   local ks = rc4_new(self.key)
   local pkg = wep_pkg(WEP_DTG, self.name, ks, cls, ch, rch, body)
   self.hws(ch, rch, pkg)
@@ -218,7 +225,7 @@ end
 
 function Net.send(self, id, cls, body)
   local tch = self.idch(id)
-  local mch = self.idch(self.id)
+  local mch = self.mych
   local kss = self.kstx[id]
   if not kss then return end
   local ks = rc4_load(kss)
@@ -228,7 +235,7 @@ function Net.send(self, id, cls, body)
 end
 
 function Net.sendAll(self, cls, body)
-  local mch = self.idch(self.id)
+  local mch = self.mych
   local kstx = self.kstx
   local hws = self.hws
   for id, kss in pairs(kstx) do
@@ -241,7 +248,7 @@ function Net.sendAll(self, cls, body)
 end
 
 function Net.sendEach(self, cls, Body)
-  local mch = self.idch(self.id)
+  local mch = self.mych
   local kstx = self.kstx
   local hws = self.hws
   for id, kss in pairs(kstx) do
@@ -284,7 +291,7 @@ function Net.connect(self, ch, tmo_ms)
     time = now
   })
 
-  self:post(ch, self.msg.ConnReq, u32enc(tkpubl) .. u32enc(epoch()) .. u16enc(tmo_ms))
+  self:post(ch, self.dtg.ConnReq, u32enc(tkpubl) .. u32enc(epoch()) .. u16enc(tmo_ms))
   self:log("Conn Start " .. now)
   return tkpubl
 end
@@ -300,7 +307,7 @@ local function lnrs_tmo(self)
   end
 end
 
-function Msg.ConnReq(self, id, body)
+function Dtg.ConnReq(self, id, body)
   if #body ~= 10 then return end
 
   local peer = self.peer[id]
@@ -356,12 +363,12 @@ function Net.accept(self, id)
     timer.once(res)
   end
 
-  self:post(self.idch(id), self.msg.ConnAcpt, u32enc(res.tkpubl) .. u32enc(res.tkpriv))
+  self:post(self.idch(id), self.dtg.ConnAcpt, u32enc(res.tkpubl) .. u32enc(res.tkpriv))
 end
 
 ------- ConnAcpt Handler -------------------------------------
 
-function Msg.ConnAcpt(self, id, body, dist)
+function Dtg.ConnAcpt(self, id, body, dist)
   if #body ~= 8 then return end
   if self.seen[id] then return end
 
@@ -370,10 +377,10 @@ function Msg.ConnAcpt(self, id, body, dist)
   if not lnrq then return end
 
   local tch = self.idch(id)
-  local mch = self.idch(self.id)
+  local mch = self.mych
   local res = u32enc(nonce32()) .. sub(body, 5, 8)
   local ks0 = rc4_new(self.key)
-  local pkg = wep_pkg(WEP_DTG, self.name, ks0, self.msg.ConnEstb, tch, mch, res)
+  local pkg = wep_pkg(WEP_DTG, self.name, ks0, self.dtg.ConnEstb, tch, mch, res)
   local kss = rc4_save(ks0)
   self.ksrx[id] = kss
   self.kstx[id] = kss
@@ -389,7 +396,7 @@ end
 
 ------- ConnEstb Handler ----------------------------------
 
-function Msg.ConnEstb(self, id, body, dist, ksrx)
+function Dtg.ConnEstb(self, id, body, dist, ksrx)
   if #body < 8 or #body > 262 then return end
   local res = self.lnrs[id]
   if not res or not res.accepted then return end
@@ -425,8 +432,8 @@ end
 local function byebye(self, id, kss)
   local ks = rc4_load(kss)
   local tch = self.idch(id)
-  local mch = self.idch(self.id)
-  local pkg = wep_pkg(WEP_LNK, self.name, ks, self.msg.ConnClose, tch, mch)
+  local mch = self.mych
+  local pkg = wep_pkg(WEP_LNK, self.name, ks, self.lnk.ConnClose, tch, mch)
   self.hws(tch, mch, pkg)
 end
 
@@ -448,7 +455,7 @@ end
 ------- ConnClose Handler ------------------------------------
 
 
-function Msg.ConnClose(self, id)
+function Lnk.ConnClose(self, id)
   self:report("Conn Close @", id, 1)
   self:kill(id)
 end
@@ -456,26 +463,26 @@ end
 ------- ConnAlive Sender -----------------------------------
 
 function Net.hint(self, id)
-  self:send(id, self.msg.ConnAlive, randstr3())
+  self:send(id, self.lnk.ConnAlive, randstr3())
 end
 
 function Net.claim(self)
-  self:sendEach(self.msg.ConnAlive, randstr3)
+  self:sendEach(self.lnk.ConnAlive, randstr3)
 end
 
 ------- ConnAlive Handler ----------------------------------
 
-function Msg.ConnAlive() end
+function Lnk.ConnAlive() end
 
 ------- ConnCheck Sender -----------------------------------
 
 function Net.check(self, id)
-  self:send(id, self.msg.ConnCheck)
+  self:send(id, self.lnk.ConnCheck)
 end
 
 ------- ConnCheck Handler ----------------------------------
 
-function Msg.ConnCheck(self, id)
+function Lnk.ConnCheck(self, id)
   self:hint(id)
 end
 
@@ -486,7 +493,7 @@ local function sendCmd(self, code, ids)
   local usedCode =  sub(code,-1) == ')' and 'return ' .. code or code -- function tricks
   local body = u16enc(cnt) .. usedCode
   for _, id in ipairs(ids) do --
-    self:send(id, self.msg.CmdReq, body)
+    self:send(id, self.lnk.CmdReq, body)
   end
   self.cmdcnt = cnt
   self.cmdhist[cnt] = code
@@ -565,20 +572,20 @@ local function createCmdTask(self, id, cid, code)
       status = '\3'
       result = rex
     end
-    self:send(id, self.msg.CmdRes, u16enc(cid) .. status .. result)
+    self:send(id, self.lnk.CmdRes, u16enc(cid) .. status .. result)
   end)
 end
 
-function Msg.CmdReq(self, id, body)
+function Lnk.CmdReq(self, id, body)
   if #body < 2 then return end
   local cid = u16dec(body, 1, 2)
   local code = sub(body, 3)
   createCmdTask(self, id, cid, code)
   -- os.queueEvent()
-  self:send(id, self.msg.CmdAck, u16enc(cid))
+  self:send(id, self.lnk.CmdAck, u16enc(cid))
 end
 
-function Msg.CmdAck(self, id, body)
+function Lnk.CmdAck(self, id, body)
   if #body ~= 2 then return end
   local cid = u16dec(body,1,2)
   self.cmdack[id] = cid
@@ -586,7 +593,7 @@ end
 
 local CMDRES_ST = {"OK","Err","Bad"}
 
-function Msg.CmdRes(self, id, body)
+function Lnk.CmdRes(self, id, body)
   if #body < 3 then return end
   local cid = u16dec(body, 1, 2)
   local status = CMDRES_ST[dec(body,3,3)] or "Unk"
@@ -603,7 +610,7 @@ function Net.log(self, log)
   log = tostring(log)
   insert(t, log)
   for id in pairs(self.watcher) do
-    self:send(id, self.msg.LogData, log)
+    self:send(id, self.lnk.LogData, log)
   end
   if self.showlog then
     tui.print('\7'..self.id..' '..log)
@@ -616,7 +623,7 @@ end
 
 local function printLogs(self, id)
   local pre = '\7'..id..' '
-  for _, log in self.logs do
+  for _, log in ipairs(self.logs) do
     tui.print(pre..log)
   end
 end
@@ -627,13 +634,13 @@ function Net.cat(self, id)
   elseif id == self.id then
     printLogs(self, id)
   else
-    self:send(id, self.msg.LogCat)
+    self:send(id, self.lnk.LogCat)
   end
 end
 
 function Net.watch(self, ...)
   local watchee = self.watchee
-  local msg = self.msg.LogWatch
+  local msg = self.lnk.LogWatch
   for _, id in ipairs({...}) do
     local n = watchee[id]
     if n == nil then
@@ -648,12 +655,12 @@ end
 function Net.watchCat(self, id)
   local watchee = self.watchee
   watchee[id] = (watchee[id] or 0) + 1
-  self:send(id, self.msg.LogWatchCat)
+  self:send(id, self.lnk.LogWatchCat)
 end
 
 function Net.unwatch(self, ...)
   local watchee = self.watchee
-  local msg = self.msg.LogUnwatch
+  local msg = self.lnk.LogUnwatch
   for _, id in ipairs({...}) do
     local n = watchee[id]
     if n then
@@ -669,7 +676,7 @@ end
 
 function Net.unwatchAll(self)
   local watchee = self.watchee
-  local msg = self.msg.LogUnwatch
+  local msg = self.lnk.LogUnwatch
   for id in pairs(watchee) do
     watchee[id] = nil
     self:send(id, msg)
@@ -678,28 +685,48 @@ end
 
 ------- Log Handler -----------------------------------
 
-function Msg.LogData(self, id, body)
+function Lnk.LogData(self, id, body)
   local pre = '\25'..id..' '
   for log in gmatch(body, '[^\0]+') do
     tui.print(pre..log)
   end
 end
 
-function Msg.LogCat(self, id)
-  self:send(id, self.msg.LogData, concat(self.logs, '\0'))
+function Lnk.LogCat(self, id)
+  self:send(id, self.lnk.LogData, concat(self.logs, '\0'))
 end
 
-function Msg.LogWatch(self, id)
+function Lnk.LogWatch(self, id)
   self.watcher[id] = true
 end
 
-function Msg.LogWatchCat(self, id)
+function Lnk.LogWatchCat(self, id)
   self.watcher[id] = true
-  self:send(id, self.msg.LogData, concat(self.logs, '\0'))
+  self:send(id, self.lnk.LogData, concat(self.logs, '\0'))
 end
 
-function Msg.LogUnwatch(self, id)
+function Lnk.LogUnwatch(self, id)
   self.watcher[id] = nil
+end
+
+------- Ping Sender ------------------------------------
+
+function Net.public(self, id, cls, body)
+  local pkg = pub_pkg(self.name, cls, body)
+  self.hws(self.idch(id), self.mych, pkg)
+end
+
+function Net.ping(self, id, body)
+  self:public(id, self.pub.Ping, body)
+end
+
+function Pub.Ping(self, id, body)
+  self:log('Ping @'..id..' '..body)
+  self:public(id, self.pub.Pong, body)
+end
+
+function Pub.Pong(self, id, body)
+  self:log('Pong @'..id..' '..body)
 end
 
 ----------------- Exports ----------------------------------
@@ -733,7 +760,11 @@ local function FakeTransmit(name) --
   end
 end
 
-local M = {Net = Net, Msg = Msg, of = managed}
+local M = {Net = Net, Lnk = Lnk, Dtg = Dtg, Pub = Pub, of = managed}
+
+function M.cloneMsg(self)
+  return setmetatable(utils.assign({}, self), mt_Msg)
+end
 
 function M.newNet(name, key, hw)
   if managed[name] then return nil, "Net existed" end
@@ -782,6 +813,8 @@ function M.newNet(name, key, hw)
     cmdcnt = 0,
     cmdack = {},
     cmdhist = {},
+    -- fast access
+    mych = Net.idch(ID)
   }
   self.checker = timer.once({
     timerFn = checker_timer,
@@ -799,10 +832,6 @@ function M.newNet(name, key, hw)
   setmetatable(self, mt_Net)
   managed[name] = self
   return self
-end
-
-function M.newMsg()
-  return setmetatable(utils.assign({}, Msg), mt_Msg)
 end
 
 local function recvConn(handle, net, id, body)
@@ -831,13 +860,20 @@ local function receive()
     pkg = nil
   end
   local id = net.chid(rch)
-  local ks
+  local ks, msg
   if m == WEP_LNK then
     ks = net.ksrx[id] -- kss
     if not ks then return end
     ks = rc4_load(ks)
+    msg = net.lnk
   elseif m == WEP_DTG then
     ks = rc4_new(net.key)
+    msg = net.dtg
+  elseif m == PLAIN1 then
+    if #pkg < n then return end
+    local handle = net.pub[dec(pkg, n)]
+    if not handle then return end
+    return pcall(handle, net, id, sub(pkg, n + 1))
   else
     return
   end
@@ -846,7 +882,7 @@ local function receive()
   if len < 0 then return end
   local sum = rc4_crypt_str2num(ks, pkg, n, n + 3)
   local cls = rc4_crypt_byte(ks, dec(pkg, ci))
-  local handle = net.msg[cls]
+  local handle = msg[cls]
   if not handle then return end
   local body = rc4_crypt(ks, {dec(pkg, ci + 1, #pkg)})
   if crc32n_buf(crc32n0_cww(cls, lch, rch), body) == sum then

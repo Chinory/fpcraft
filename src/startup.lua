@@ -84,7 +84,7 @@ function ez.reboots()
 end
 
 if net.hw.open then
-  net.hw.open(net.idch(ID))
+  net.hw.open(net.mych)
   net.hw.open(65535)
 end
 
@@ -113,9 +113,7 @@ else
       if ln and ln.key == key then
         ez.l = ln
         ln.showlog = true
-        for _, l in ipairs(ln.logs) do
-          tui.print('\7'..l)
-        end
+        ln:cat()
         term_main(true)
         ln.showlog = false
       else

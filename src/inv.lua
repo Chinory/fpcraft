@@ -25,7 +25,7 @@ local M = { --
 
 function M.mySum() return sum(M._) end
 
-function link.Msg.InvData(_, id, body)
+function link.Lnk.InvData(_, id, body)
   M[id] = body
 end
 
