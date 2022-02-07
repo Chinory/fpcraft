@@ -1,67 +1,45 @@
--- local utils = require("utils")
--- local tui = require("tui")
+local insert = table.insert
+local remove = table.remove
 local unpack = table.unpack
 local tui = require("tui")
-local managed = {}
 
-local M = {max = 0, n = 0}
-
-function M.add(co)
-  local id = M.max + 1
-  local task = { co = co }
-  M.max = id
-  managed[id] = task
-  M.n = M.n + 1
-  return task
-end
+local M = {max = 0}
 
 function M.create(f)
   local id = M.max + 1
-  local task = { co = coroutine.create(f) }
+  local task = {id, coroutine.create(f)}
   M.max = id
-  managed[id] = task
-  M.n = M.n + 1
-  return task
+  insert(M, task)
+  return id
 end
 
-function M.kill(id)
-  local co = managed[id]
-  if co then
-    managed[id] = nil
-    M.n = M.n - 1
-    return co
+function M.remove(id)
+  for i, task in ipairs(M) do
+    if task[1] == id then
+      return remove(M, i)
+    end
   end
 end
 
 function M.main()
-  local evdata = {}
+  local argv = {}
   while true do
-    for id, task in pairs(managed) do
-      if task.ev == nil or task.ev == evdata[1] then
-        local ok, ev = coroutine.resume(task.co, unpack(evdata)) --foreign
+    for _, task in ipairs(M) do
+      if task[3] == nil or task[3] == argv[1] then
+        local ok, res = coroutine.resume(task[2], unpack(argv))
+        task[3] = res
         if not ok then
-          tui.print("\19 " .. ev)
-          managed[id] = nil
-          M.n = M.n - 1
-        elseif coroutine.status(task.co) == "dead" then
-          managed[id] = nil
-          M.n = M.n - 1
-        else
-          task.ev = ev
+          tui.print("\19 " .. res)
         end
       end
     end
-    for id, task in pairs(managed) do
-      if coroutine.status(task.co) == "dead" then
-        managed[id] = nil
-        M.n = M.n - 1
+    for i = #M, 1, -1 do
+      if coroutine.status(M[i][2]) == 'dead' then
+        remove(M, i)
       end
     end
-    evdata = {os.pullEventRaw()}
-    -- tui.print(utils.ser(evdata))
+    argv = {os.pullEventRaw()}
   end
 end
-
-setmetatable(M, {__index = managed})
 
 return M
