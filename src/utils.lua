@@ -242,10 +242,7 @@ local function sera(r,a)
   elseif t == 'string' then
     return format('%q', a)
   elseif t == 'table' then
-    if not r[a] then
-      r[a] = true
-      return sert(r,a)
-    end
+    return sert(r,a)
   elseif t == 'boolean' then
     return a and 'T' or 'F'
   elseif t == 'function' then
@@ -254,6 +251,8 @@ local function sera(r,a)
 end
 
 sert = function(r,a)
+  if r[a] then return
+  else r[a] = true end
   local o = {'{'}
   local n = serOptArrLen(a)
   for i = 1, n do
