@@ -281,7 +281,7 @@ function Net.connect(self, ch, tmo_ms)
   while self.lnrq[tkpubl] do tkpubl = tkpubl + 1 end
 
   local now = floor(gtime() * 1000)
-  self.lnrq[tkpubl] = timer.once({
+  self.lnrq[tkpubl] = timer.start({
     timerFn = lnrq_tmo,
     timerIv = tmo_ms / 1000,
     net = self,
@@ -328,7 +328,7 @@ function Dtg.ConnReq(self, id, body)
   end
 
   local rem_s = rem_ms / 1000
-  self.lnrs[id] = timer.once({
+  self.lnrs[id] = timer.start({
     timerFn = lnrs_tmo,
     timerIv = rem_s,
     net = self,
@@ -360,7 +360,7 @@ function Net.accept(self, id)
     res.expire = now + rtt
     res.tkpriv = token32(self.id)
     res.accepted = true
-    timer.once(res)
+    timer.start(res)
   end
 
   self:post(self.idch(id), self.dtg.ConnAcpt, u32enc(res.tkpubl) .. u32enc(res.tkpriv))
@@ -468,6 +468,29 @@ end
 
 function Net.claim(self)
   self:sendEach(self.lnk.ConnAlive, randstr3)
+end
+
+
+------- Ack Sender ----------------------------------
+
+local function waiter_timer(t)
+
+end
+
+function Net.wait(self, id, cmac)
+  timer.ensure(self.waiter)
+  local _, ok = os.pullEvent(cmac) -- unsafe perf trick
+  return ok
+end
+
+function Net.ack(self, id, cmac)
+  return self:send(id, self.lnk.Ack, cmac)
+end
+
+------- Ack Handler ----------------------------------
+
+function Lnk.Ack(self, id, cmac)
+  os.queueEvent(cmac)
 end
 
 ------- ConnAlive Handler ----------------------------------
@@ -743,7 +766,7 @@ local function checker_timer(t)
       self:check(id)
     end
   end
-  timer.once(t)
+  timer.start(t)
 end
 
 -- local function finder_timer(t)
@@ -751,7 +774,7 @@ end
 --   for _, id in ipairs(t.ids) do
 --     if not self.seen[id] and id ~= self.id then self:connect(id) end
 --   end
---   timer.once(t)
+--   timer.start(t)
 -- end
 
 local function FakeTransmit(name) --
@@ -816,14 +839,19 @@ function M.newNet(name, key, hw)
     -- fast access
     mych = Net.idch(ID)
   }
-  self.checker = timer.once({
+  self.checker = timer.start({
     timerFn = checker_timer,
     timerIv = 2,
     checkTime = 6,
     closeTime = 12,
     net = self
   })
-  -- self.finder = timer.once({
+  self.waiter = {
+    timerFn = waiter_timer,
+    timerIv = 0.05, --1 tick
+    net = self
+  }
+  -- self.finder = timer.start({
   --   timerFn = finder_timer,
   --   timerIv = 10,
   --   ids = {},

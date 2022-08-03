@@ -93,7 +93,7 @@ function M.report(s, it, age, obj, func)
   if report then
     insert(report, it)
   else
-    reports[s] = timer.once({it, s = s, timerIv = age, timerFn = flush, obj = obj, func = func})
+    reports[s] = timer.start({it, s = s, timerIv = age, timerFn = flush, obj = obj, func = func})
   end
 end
 
