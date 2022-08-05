@@ -19,7 +19,7 @@ local bxor = bit32.bxor
 local gtime = os.time
 local clock = os.clock
 local epoch0 = os.epoch
-local EPOCH = 1644016299351
+local EPOCH = 1659705738556
 local function epoch() return epoch0("utc") - EPOCH end
 
 ------- Crypto ------------------------------

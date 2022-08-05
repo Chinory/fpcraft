@@ -23,6 +23,11 @@ function M.stop(self)
 end
 
 function M.start(self)
+  start(self)
+  return self
+end
+
+function M.restart(self)
   stop(self)
   start(self)
   return self
