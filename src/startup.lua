@@ -130,6 +130,10 @@ else
     local t = inv.mySum()
     return net:sendAll(net.lnk.InvData, utils.ser(t))
   end)
+  inv.Inv.issueLackOf = function(name)
+    net:issue("lack of " .. name)
+  end
+
   -- table.insert(lnk.finder.ids, 1)
 end
 

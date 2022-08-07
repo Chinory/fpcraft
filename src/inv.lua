@@ -4,6 +4,8 @@ local link = require("link")
 
 local Inv = {onUpdate = utils.asEvent({})}
 
+Inv.Inv = Inv
+
 function Inv.scan()
   local st = stat.new()
   for i = 1, 16 do
@@ -29,6 +31,25 @@ function Inv.mySum()
   return Inv.sum(singleton[ID])
 end
 
+function Inv.issueLackOf(name)
+  error("Inv.issueLackOf() unimplemented")
+end
+
+function Inv.select(name)
+  for _ = 1, 2 do
+    local t = singleton[ID][name]
+    if t ~= nil then
+      for slot, count in pairs(t) do
+        if count > 0 then
+          act.nvss(slot)
+          return
+        end
+      end
+    end
+    Inv.issueLackOf(name)
+  end
+  error('failed to solve lack of "' .. name .. '"')
+end
 
 function link.Lnk.InvData(_, id, body)
   singleton[id] = utils.des(body)
