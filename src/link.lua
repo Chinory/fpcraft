@@ -752,6 +752,11 @@ function Pub.Pong(self, id, body)
   self:log('Pong @'..id..' '..body)
 end
 
+function Net.reboot(self)
+  self:cmd("os.reboot()")
+  os.reboot()
+end
+
 ----------------- Exports ----------------------------------
 
 local function checker_timer(t)
