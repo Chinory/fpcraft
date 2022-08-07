@@ -415,6 +415,13 @@ function Dtg.ConnEstb(self, id, body, dist, ksrx)
 
   self:report("Conn Estb @", id, 1)
 
+  local myIssues = self.issues[self.id]
+  if myIssues ~= nil then
+    for issueId, desc in pairs(myIssues) do
+      self:send(id, self.lnk.Issue, u32enc(issueId) .. desc)
+    end
+  end
+
   return self:onConnected(id)
 end
 
@@ -583,7 +590,7 @@ local function createCmdTask(self, id, cid, code)
     if fn then
       ez.l = self
       local res = {pcall(setfenv(fn, ez))}
-      ez.l = nil
+      -- ez.l = nil --这里其实有泄露问题但是先这样吧
       if remove(res, 1) then
         status = '\1'
         result = utils.ser(res)
@@ -640,8 +647,8 @@ function Net.log(self, log)
   end
 end
 
-function Net.report(self, s, it, age)
-  tui.report(s, it, age or self.reportAge, self, self.log)
+function Net.report(self, desc, id, age)
+  tui.report(desc, id, age or self.reportAge, self, self.log)
 end
 
 local function printLogs(self, id)
@@ -757,6 +764,93 @@ function Net.reboot(self)
   os.reboot()
 end
 
+------------ Looking For Help & Manual Recovery ------------------
+
+function Lnk.Issue(self, askerId, body)
+  local issueId = u32dec(body, 0, 4)
+  local desc = sub(body, 5)
+  self.issues[askerId][issueId] = desc
+  self:report('Issue "' .. desc .. '" @', askerId)
+end
+
+function Lnk.Solved(self, solverId, body)
+  local issueId = u32dec(body, 0, 4)
+  self:solve(self.id, issueId, solverId)
+end
+
+local function send_issue(self, issueId, desc)
+  self:log("Ask for #" .. issueId .. ": " .. desc)
+  self:sendAll(self.lnk.Issue, u32enc(issueId) .. desc)
+end
+
+local function issue_timer(t)
+  local self = t.net
+  local myIssue = self.issues[self.id]
+  if myIssue == nil then return end
+  for id, desc in pairs(myIssue) do
+    send_issue(self, id, desc)
+  end
+  timer.start(self.issueTimer)
+end
+
+function Net.issue(self, desc)
+  if desc == nil then
+    error("desc can not be nil")
+  end
+  local issueId = self.myIssueId + 1
+  self.myIssueId = issueId
+  self.issues[self.id][issueId] = desc
+  send_issue(self, issueId, desc)
+  timer.ensure(self.issueTimer)
+  local _, solverId = os.pullEvent(self.name .. "_solved_" .. issueId)
+  return solverId
+end
+
+local function solve_issue(self, askerId, issueId, solverId)
+  self:log("Solved @" .. askerId .. " #" .. issueId .. " By @" .. solverId)
+  if askerId == self.id then
+    os.queueEvent(self.name .. "_solved_" .. issueId, solverId)
+  else
+    self:send(askerId, self.lnk.Solved, u32enc(issueId))
+  end
+end
+
+function Net.solve(self, askerId, issueId, solverId)
+  local theIssues = rawget(self.issues, askerId)
+  if theIssues == nil then
+    error("no such asker")
+  end
+  if solverId == nil then
+    solverId = self.id
+  end
+  if issueId ~= nil and issueId > 0 then
+    if theIssues[issueId] == nil then
+      error("no such issue")
+    end
+    theIssues[issueId] = nil
+    if next(theIssues) == nil then
+      self.issues[askerId] = nil
+    end
+    solve_issue(self, askerId, issueId, solverId)
+  else
+    self.issues[askerId] = nil
+    for id in pairs(theIssues) do
+      solve_issue(self, askerId, id, solverId)
+    end
+  end
+end
+
+function Net.solveAll(self)
+  local issues = self.issues
+  self.issues = utils.asDepth1({})
+  local solverId = self.id
+  for askerId, theIssues in pairs(issues) do
+    for issueId in pairs(theIssues) do
+      solve_issue(self, askerId, issueId, solverId)
+    end
+  end
+end
+
 ----------------- Exports ----------------------------------
 
 local function checker_timer(t)
@@ -842,7 +936,10 @@ function M.newNet(name, key, hw)
     cmdack = {},
     cmdhist = {},
     -- fast access
-    mych = Net.idch(ID)
+    mych = Net.idch(ID),
+    -- issue: helping and solving
+    issues = utils.asDepth1({}),
+    myIssueId = 0,
   }
   self.checker = timer.start({
     timerFn = checker_timer,
@@ -854,6 +951,11 @@ function M.newNet(name, key, hw)
   self.waiter = {
     timerFn = waiter_timer,
     timerIv = 0.05, --1 tick
+    net = self
+  }
+  self.issueTimer = {
+    timerFn = issue_timer,
+    timerIv = 60,
     net = self
   }
   -- self.finder = timer.start({

@@ -35,6 +35,29 @@ local function keys(t)
   return ks
 end
 
+local mt_Depth1 = {
+  __index = function(t, k)
+    local v = {}
+    t[k] = v
+    return v
+  end
+}
+
+local mt_Depth2 = {
+  __index = function(t, k)
+    local v = setmetatable({}, mt_Depth1)
+    t[k] = v
+    return v
+  end
+}
+
+local mt_DepthInf = {}
+function mt_DepthInf.__index(t, k)
+  local v = setmetatable({}, mt_DepthInf)
+  t[k] = v
+  return v
+end
+
 ---- func ----
 
 local function map(func, list)
@@ -121,6 +144,9 @@ local M = {
   end end,
   find = function(t, x) for i, v in ipairs(t) do if v == x then return i end end end,
   keys = keys, shrink = shrink, extend = extend, assign = assign,
+  asDepth1 = function(t) return setmetatable(t, mt_Depth1) end,
+  asDepth2 = function(t) return setmetatable(t, mt_Depth2) end,
+  asDepthInf = function(t) return setmetatable(t, mt_DepthInf) end,
   map = map, filter = filter, curry = curry, quote = quote, partial = partial,
   Src = function(f) return function() return f() end end,
   Dst = function(f) return function(...) f(...) end end,
