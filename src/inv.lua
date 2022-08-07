@@ -2,7 +2,9 @@ local act = require("act")
 local stat = require("stat")
 local link = require("link")
 
-local function scan()
+local Inv = {onUpdate = utils.asEvent({})}
+
+function Inv.scan()
   local st = stat.new()
   for i = 1, 16 do
     local v = act.nvid(i)
@@ -11,39 +13,36 @@ local function scan()
   return st
 end
 
-local function sum(st)
+function Inv.sum(st)
   local t = stat.new()
-  for k, v in pairs(st) do t[k] = stat.sum(v) end
+  for k, v in pairs(st) do
+    t[k] = stat.sum(v)
+  end
   return t
 end
 
-local M = { --
-  sum = sum,
-  scan = scan,
-  onUpdate = utils.asEvent({})
-}
+local singleton = setmetatable({}, {__index = Inv})
 
-function M.mySum() return sum(M._) end
-
-function link.Lnk.InvData(_, id, body)
-  M[id] = body
+function Inv.mySum()
+  return Inv.sum(singleton._)
 end
 
-function M.main()
-  if not turtle.fake then M._ = scan() end
+
+function link.Lnk.InvData(_, id, body)
+  singleton[id] = body
+end
+
+function Inv.main()
+  if not turtle.fake then
+    singleton._ = Inv.scan()
+  end
   while true do
     os.pullEvent("turtle_inventory")
-    local new = scan()
-    local old = M._
-    M._ = new
-    M.onUpdate(new, old)
+    local new = Inv.scan()
+    local old = singleton._
+    singleton._ = new
+    singleton.onUpdate(new, old)
   end
 end
 
-local mt = {
-  __tostring = function(self) return "Inv{" .. utils.prettyList(self) .. "}" end
-}
-
-setmetatable(M, mt)
-
-return M
+return singleton
