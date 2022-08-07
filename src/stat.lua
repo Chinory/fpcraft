@@ -214,7 +214,7 @@ function mt.__mul(self, x)
   elseif x == 0 then
     return new()
   elseif x == 1 then
-    return clone(self)
+    return self
   else
     return map(weak(), mul(x), self)
   end
@@ -223,13 +223,11 @@ end
 function mt.__div(self, x)
   if type(x) ~= "number" then
     error("operand must be number", 2)
-  elseif x == 0 then
-    return prune(self)
   elseif x == 1 then
-    return sum(self)
+    return self
   else
     return map(weak(), div(x), self)
   end
 end
 
-return {new = new}
+return {new=new, clone=clone, sum=sum, prune=prune}

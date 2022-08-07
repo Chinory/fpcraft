@@ -13,7 +13,7 @@ end
 
 local function sum(st)
   local t = stat.new()
-  for k, v in pairs(st) do t[k] = v / 1 end
+  for k, v in pairs(st) do t[k] = stat.sum(v) end
   return t
 end
 
@@ -39,5 +39,11 @@ function M.main()
     M.onUpdate(new, old)
   end
 end
+
+local mt = {
+  __tostring = function(self) return "Inv{" .. utils.prettyList(self) .. "}" end
+}
+
+setmetatable(M, mt)
 
 return M
