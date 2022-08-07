@@ -213,7 +213,7 @@ local function serOptArrLen(t)
     local n = #t + 1
     if n > m then n = m end
     while i < n do
-      if t[i] == nil then
+      if rawget(t,i) == nil then
         pad = pad + 2 --assert(_==nil)
       else
         fly = fly + s
@@ -256,7 +256,7 @@ sert = function(r,a)
   local o = {'{'}
   local n = serOptArrLen(a)
   for i = 1, n do
-    insert(o, a[i] ~= nil and sera(r, a[i]) or '_')
+    insert(o, rawget(a,i) ~= nil and sera(r, rawget(a,i)) or '_')
     insert(o, ',')
   end
   for k, v in pairs(a) do
@@ -306,6 +306,16 @@ end
 
 function M.ser(any)
   return sera({},any)
+end
+
+function M.listOf(t)
+  local n = {}
+  for k, v in pairs(t) do
+    if type(k) == "number" then
+      n[k] = v
+    end
+  end
+  return n
 end
 
 function M.des(str)
