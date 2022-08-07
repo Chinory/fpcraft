@@ -484,7 +484,7 @@ function Net.wait(self, id, cmac)
 end
 
 function Net.ack(self, id, cmac)
-  return self:send(id, self.lnk.Ack, cmac)
+  self:send(id, self.lnk.Ack, cmac)
 end
 
 ------- Ack Handler ----------------------------------
