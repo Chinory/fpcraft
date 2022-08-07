@@ -1,4 +1,5 @@
 local t = require("turtle")
+local hasType = peripheral.hasType
 local M = {
 movf=t.forward, movb=t.back, movu=t.up, movd=t.down,
 tunl=t.turnLeft, tunr=t.turnRight,
@@ -15,7 +16,14 @@ nvgs=t.getSelectedSlot, nvss=t.select,
 nvtt=t.transferTo, nvct=t.compareTo,
 gefu=t.getFuelLevel, refu=t.refuel,
 eqpl=t.equipLeft, eqpr=t.equipRight,
-crft=t.craft }
+crft=t.craft,
+isut = function() return hasType("top","turtle") end,
+isdt = function() return hasType("bottom","turtle") end,
+isft = function() return hasType("front","turtle") end,
+isbt = function() return hasType("back","turtle") end,
+islt = function() return hasType("left","turtle") end,
+isrt = function() return hasType("right","turtle") end,
+}
 
 local MVOB = "Movement obstructed"
 
@@ -23,7 +31,7 @@ function M.rusf()
   while true do
     local b, r = M.movf()
     if b then return b, r end
-    if r == MVOB then
+    if r == MVOB and not M.isft() then
       b, r = M.digf()
       if not b then return b, r end
     end
@@ -34,7 +42,7 @@ function M.rusu()
   while true do
     local b, r = M.movu()
     if b then return b, r end
-    if r == MVOB then
+    if r == MVOB and not M.isut() then
       b, r = M.digu()
       if not b then return b, r end
     end
@@ -45,7 +53,7 @@ function M.rusd()
   while true do
     local b, r = M.movd()
     if b then return b, r end
-    if r == MVOB then
+    if r == MVOB and not M.isdt() then
       b, r = M.digd()
       if not b then return b, r end
     end
