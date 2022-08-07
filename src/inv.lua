@@ -8,7 +8,9 @@ function Inv.scan()
   local st = stat.new()
   for i = 1, 16 do
     local v = act.nvid(i)
-    if v then st[v.name][i] = v.count end
+    if type(v) == "table" then
+      st[v.name][i] = v.count
+    end
   end
   return st
 end
@@ -24,23 +26,23 @@ end
 local singleton = setmetatable({}, {__index = Inv})
 
 function Inv.mySum()
-  return Inv.sum(singleton._)
+  return Inv.sum(singleton[ID])
 end
 
 
 function link.Lnk.InvData(_, id, body)
-  singleton[id] = body
+  singleton[id] = utils.des(body)
 end
 
 function Inv.main()
   if not turtle.fake then
-    singleton._ = Inv.scan()
+    singleton[ID] = Inv.scan()
   end
   while true do
     os.pullEvent("turtle_inventory")
     local new = Inv.scan()
-    local old = singleton._
-    singleton._ = new
+    local old = singleton[ID]
+    singleton[ID] = new
     singleton.onUpdate(new, old)
   end
 end
