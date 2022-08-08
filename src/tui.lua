@@ -82,7 +82,6 @@ local function into_str(list)
   local strs = ensure_nums(list)
   if #list == 0 then return strs or "" end
   sort(list)
-  print(utils.ser(list))
   local nums_str = sints_tostr(list)
   if strs == nil then return nums_str end
   strs[1] = nums_str
