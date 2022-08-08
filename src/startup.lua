@@ -1,5 +1,5 @@
 -- Lua
-_G.utils = require('utils')
+_G.util = require('util')
 
 -- CraftOS
 _G.ID = os.getComputerID()
@@ -15,12 +15,12 @@ _G.timer = require('timer')
 -- Debug
 _G.ez = setmetatable({}, {__index = _G})
 ez.ps = function(...) tui.print(tostring(...)) end
-ez.pv = function(...) tui.print(utils.ser(...)) end
+ez.pv = function(...) tui.print(util.ser(...)) end
 ez.read = tui.read
 ez.write = tui.write
 ez.print = tui.print
-utils.assign(ez, act)
-utils.assign(ez, utils)
+util.assign(ez, act)
+util.assign(ez, util)
 
 
 -- local insert = table.insert
@@ -44,7 +44,7 @@ local function term_main(exitable)
         local ok = table.remove(res, 1)
         local t = math.floor(os.time() * 10)
         if ok then
-          tui.print('\7' .. ID .. ' ' .. t .. ' OK ' .. utils.ser(res))
+          tui.print('\7' .. ID .. ' ' .. t .. ' OK ' .. util.ser(res))
         else
           tui.print('\7' .. ID .. ' ' .. t .. ' Err ' .. (res[1] or '?'))
         end
@@ -79,7 +79,7 @@ function ez.reboot()
 end
 
 function ez.reboots()
-  net:sendCmd('os.reboot()', utils.keys(net.seen))
+  net:sendCmd('os.reboot()', util.keys(net.seen))
   os.reboot()
 end
 
@@ -124,11 +124,11 @@ else
   end)
   -- JOIN link AND inv
   table.insert(net.onConnected, function(self, id) --
-    return self:send(id, self.lnk.InvData, utils.ser(inv.mySum()))
+    return self:send(id, self.lnk.InvData, util.ser(inv.mySum()))
   end)
   table.insert(inv.onUpdate, function()
     local t = inv.mySum()
-    return net:sendAll(net.lnk.InvData, utils.ser(t))
+    return net:sendAll(net.lnk.InvData, util.ser(t))
   end)
   inv.Inv.issueLackOf = function(name)
     net:issue("lack of " .. name)

@@ -2,7 +2,7 @@ local act = require("act")
 local stat = require("stat")
 local link = require("link")
 
-local Inv = {onUpdate = utils.asEvent({})}
+local Inv = {onUpdate = util.asEvent({})}
 
 Inv.Inv = Inv
 
@@ -52,7 +52,7 @@ function Inv.select(name)
 end
 
 function link.Lnk.InvData(_, id, body)
-  singleton[id] = utils.des(body)
+  singleton[id] = util.des(body)
 end
 
 function Inv.main()

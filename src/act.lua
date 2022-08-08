@@ -60,7 +60,7 @@ function M.rusd()
   end
 end
 
-local u = require("utils")
+local u = require("util")
 
 function M.cube(work, tun1, tun2, depth, width, updown, height)
   local turn, switch = u.TPV(tun1, tun1, tun2)

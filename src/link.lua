@@ -1,5 +1,5 @@
 local tui = require("tui")
-local utils = require("utils")
+local util = require("util")
 local timer = require("timer")
 local proc = require("proc")
 local enc = string.char
@@ -208,7 +208,7 @@ local mt_Msg = {
 local Lnk = setmetatable({}, mt_Msg)
 local Dtg = setmetatable({}, mt_Msg)
 local Pub  = setmetatable({}, mt_Msg)
-local Net = {lnk = Lnk, dtg = Dtg, pub = Pub, chid = utils.id, idch = utils.id, reportAge = 0.25}
+local Net = {lnk = Lnk, dtg = Dtg, pub = Pub, chid = util.id, idch = util.id, reportAge = 0.25}
 
 local mt_Net = {
   __index = Net,
@@ -534,7 +534,7 @@ Net.sendCmd = sendCmd
 
 function Net.cmd(self, code, ids)
   if ids == nil then
-    ids = utils.keys(self.seen)
+    ids = util.keys(self.seen)
   elseif type(ids) == "number" then
     ids = {ids}
   elseif type(ids) ~= "table" then
@@ -547,10 +547,10 @@ end
 function Net.tel(self, ...)
   local ids = {...}
   if #ids == 0 then
-    ids = utils.keys(self.seen)
+    ids = util.keys(self.seen)
   end
   table.sort(ids)
-  local prefix = '\24' .. utils.prettySortedInts(ids) .. ">"
+  local prefix = '\24' .. util.prettySortedInts(ids) .. ">"
   while true do
     local code = tui.read(prefix, nil, self.cmdhist, tui.completeLua)
     if code == "" then break end
@@ -562,7 +562,7 @@ end
 function Net.ssh(self, ...)
   local ids = {...}
   if #ids == 0 then
-    ids = utils.keys(self.seen)
+    ids = util.keys(self.seen)
   end
   local prefix
   if #ids == 1 then
@@ -570,7 +570,7 @@ function Net.ssh(self, ...)
     self:watchCat(ids[1])
   else
     table.sort(ids)
-    prefix = '\18' .. utils.prettySortedInts(ids) .. '>'
+    prefix = '\18' .. util.prettySortedInts(ids) .. '>'
     self:watch(unpack(ids))
   end
   while true do
@@ -593,7 +593,7 @@ local function createCmdTask(self, id, cid, code)
       -- ez.l = nil --这里其实有泄露问题但是先这样吧
       if remove(res, 1) then
         status = '\1'
-        result = utils.ser(res)
+        result = util.ser(res)
       else
         status = '\2'
         result = res[1] or '?'
@@ -842,7 +842,7 @@ end
 
 function Net.solveAll(self)
   local issues = self.issues
-  self.issues = utils.asDepth1({})
+  self.issues = util.asDepth1({})
   local solverId = self.id
   for askerId, theIssues in pairs(issues) do
     for issueId in pairs(theIssues) do
@@ -878,14 +878,14 @@ end
 
 local function FakeTransmit(name) --
   return function(...)
-    error('fake transmit from ' .. name .. ' ' .. utils.ser({...}), 2)
+    error('fake transmit from ' .. name .. ' ' .. util.ser({...}), 2)
   end
 end
 
 local M = {Net = Net, Lnk = Lnk, Dtg = Dtg, Pub = Pub, of = managed}
 
 function M.cloneMsg(self)
-  return setmetatable(utils.assign({}, self), mt_Msg)
+  return setmetatable(util.assign({}, self), mt_Msg)
 end
 
 function M.newNet(name, key, hw)
@@ -921,7 +921,7 @@ function M.newNet(name, key, hw)
     name = name,
     key = key,
     id = ID,
-    onConnected = utils.asEvent({}),
+    onConnected = util.asEvent({}),
     -- peers
     peer = {}, -- `nil`:manul, `false`:block, `*`:auto accept
     seen = {},
@@ -938,7 +938,7 @@ function M.newNet(name, key, hw)
     -- fast access
     mych = Net.idch(ID),
     -- issue: helping and solving
-    issues = utils.asDepth1({}),
+    issues = util.asDepth1({}),
     myIssueId = 0,
   }
   self.checker = timer.start({

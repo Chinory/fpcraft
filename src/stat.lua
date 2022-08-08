@@ -1,4 +1,4 @@
-local utils = require("utils")
+local util = require("util")
 local type = type
 local pairs = pairs
 local get = rawget
@@ -15,7 +15,7 @@ local function npn(n) return n + n end
 local function mul(x) return function(n) return n * x end end
 local function div(x) return function(n) return n / x end end
 
-local mt = {__tostring = utils.ser}
+local mt = {__tostring = util.ser}
 
 local function new() return setmetatable({}, mt) end
 

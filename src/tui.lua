@@ -39,9 +39,9 @@ local insert = table.insert
 local remove = table.remove
 local concat = table.concat
 local sort = table.sort
-local sints_tostr = utils.prettySortedInts
 local timer = require("timer")
-local utils = require("utils")
+local util = require("util")
+local sints_tostr = util.prettySortedInts
 
 ---@param list any[] after this func it turns into number[]
 ---@param i integer index of first non-number
