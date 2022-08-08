@@ -6,7 +6,7 @@ local match = string.match
 local format = string.format
 local remove = table.remove
 local unpack = table.unpack
-local insert = table.insert
+local add = table.insert
 local concat = table.concat
 
 ---- table ----
@@ -18,7 +18,7 @@ end
 
 local function extend(list, more)
   for _, x in ipairs(more) do
-    insert(list, x)
+    add(list, x)
   end
   return list
 end
@@ -63,7 +63,7 @@ end
 local function map(func, list)
   local res = {}
   for _, x in ipairs(list) do
-    insert(res, func(x))
+    add(res, func(x))
   end
   return res
 end
@@ -71,7 +71,7 @@ end
 local function filter(func, list)
   local res = {}
   for _, x in ipairs(list) do
-    if func(x) then insert(res, x) end
+    if func(x) then add(res, x) end
   end
   return res
 end
@@ -282,8 +282,7 @@ sert = function(r,a)
   local o = {'{'}
   local n = serOptArrLen(a)
   for i = 1, n do
-    insert(o, rawget(a,i) ~= nil and sera(r, rawget(a,i)) or '_')
-    insert(o, ',')
+    add(o,rawget(a,i) ~= nil and sera(r, rawget(a,i)) or '_') add(o,',')
   end
   for k, v in pairs(a) do
     local t = type(k)
@@ -291,37 +290,26 @@ sert = function(r,a)
       if k > n or k < 1 or k % 1 ~= 0 then
         v = sera(r, v)
         if v then
-          insert(o, '[' .. k .. ']=')
-          insert(o, v)
-          insert(o, ',')
+          add(o,'[' .. k .. ']=') add(o,v) add(o,',')
         end
       end
     elseif t == 'string' then
       v = sera(r,v)
       if v then
-        insert(o, keystr(k))
-        insert(o, '=')
-        insert(o, v)
-        insert(o, ',')
+        add(o,keystr(k)) add(o,'=') add(o,v) add(o,',')
       end
     elseif t == 'table' then
       k = sert(r,k)
       if k then
         v = sera(r,v)
         if v then
-          insert(o, '[')
-          insert(o, k)
-          insert(o, ']=')
-          insert(o, v)
-          insert(o, ',')
+          add(o,'[') add(o,k) add(o,']=') add(o,v) add(o,',')
         end
       end
     elseif t == 'boolean' then
       v = sera(r,v)
       if v then
-        insert(o, k and '[T]=' or '[F]=')
-        insert(o, v)
-        insert(o, ',')
+        add(o,k and '[T]=' or '[F]=') add(o,v) add(o,',')
       end
     end
   end
@@ -357,9 +345,9 @@ function M.prettyList(list)
   local strs = {''}
   for _, x in ipairs(list) do
     if type(x) == 'number' then
-      insert(nums, x)
+      add(nums, x)
     else
-      insert(strs, x)
+      add(strs, x)
     end
   end
   if #nums > 0 then
@@ -378,10 +366,10 @@ function M.prettySortedInts(I)
   local s, e
   local function flush()
     if e - s == 1 then
-      insert(O, s)
-      insert(O, e)
+      add(O, s)
+      add(O, e)
     else
-      insert(O, s .. '~' .. e)
+      add(O, s .. '~' .. e)
     end
   end
   local function clear()
@@ -390,7 +378,7 @@ function M.prettySortedInts(I)
         flush()
         e = nil
       else
-        insert(O, s)
+        add(O, s)
       end
       s = nil
     end
@@ -410,7 +398,7 @@ function M.prettySortedInts(I)
       if x - s == 1 then
         e = x
       else
-        insert(O, s)
+        add(O, s)
         s = x
       end
     else
@@ -426,14 +414,14 @@ local lti1 = function(a, b) return a[1] < b[1] end
 function M.setMetaKVList(t, keyListName, valueListName)
   local kv = {}
   for k, v in pairs(t) do
-    insert(kv, {k, v})
+    add(kv, {k, v})
   end
   table.sort(kv, lti1)
   local ks = {}
   local vs = {}
   for _, p in ipairs(kv) do
-    insert(ks, p[1])
-    insert(vs, p[2])
+    add(ks, p[1])
+    add(vs, p[2])
   end
   return setmetatable(t, {__index = {[keyListName] = ks, [valueListName] = vs}})
 end
