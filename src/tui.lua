@@ -24,17 +24,16 @@ local function print1(...)
   end
 end
 
-local tui = {
-  print = print1,
-  read = function(prefix, replaceChar, history, completeFn, default)
-    reading = prefix
-    reset()
-    write0(prefix)
-    local res = read0(replaceChar, history, completeFn, default)
-    reading = nil
-    return res
-  end
-}
+local tui = {print = print1}
+
+function tui.read(prefix, replaceChar, history, completeFn, default)
+  reading = prefix
+  reset()
+  write0(prefix)
+  local res = read0(replaceChar, history, completeFn, default)
+  reading = nil
+  return res
+end
 
 local insert = table.insert
 local remove = table.remove
