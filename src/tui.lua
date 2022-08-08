@@ -24,7 +24,7 @@ local function print1(...)
   end
 end
 
-local M = {
+local tui = {
   print = print1,
   read = function(prefix, replaceChar, history, completeFn, default)
     reading = prefix
@@ -39,68 +39,85 @@ local M = {
 local insert = table.insert
 local remove = table.remove
 local concat = table.concat
+local sort = table.sort
+local sints_tostr = utils.prettySortedInts
 local timer = require("timer")
 local utils = require("utils")
 
-local function wrapNonNums1(I, i, x)
-  local O = {"", x}
-  local j = i
-  while j < #I do
-    j = j + 1
-    x = I[j]
-    if type(x) == "number" then
-      I[i] = I[j]
+---@param list any[] after this func it turns into number[]
+---@param i integer index of first non-number
+---@param v any value of first non-number
+---@return string[]|nil
+local function remove_strs(list, i, v)
+  local strs = {""}
+  if type(v) == "string" then
+    insert(strs, v)
+  end
+  for j = i + 1, #list do
+    v = list[j]
+    local t = type(v)
+    if t == "number" then
+      list[i] = v
       i = i + 1
-    else
-      insert(O, x)
+    elseif t == "string" then
+      insert(strs, v)
     end
   end
-  repeat remove(I) until #I < i
-  return O
+  repeat remove(list) until #list < i
+  if #list == 1 then return end
+  return strs
 end
 
-local function wrapNonNums(list)
-  for i, x in ipairs(list) do
-    if type(x) ~= "number" then --
-      return wrapNonNums1(list, i, x)
+---@param list any[] after this func it should be number[]
+local function ensure_nums(list)
+  for i, v in ipairs(list) do
+    if type(v) ~= "number" then --
+      return remove_strs(list, i, v)
     end
   end
+end
+
+--- highly optimized, only sort once if list is `number[]`
+---@param list any[]
+local function into_str(list)
+  local strs = ensure_nums(list)
+  if #list == 0 then return strs or "" end
+  sort(list)
+  print(utils.ser(list))
+  local nums_str = sints_tostr(list)
+  if strs == nil then return nums_str end
+  strs[1] = nums_str
+  return concat(strs, ',')
 end
 
 local reports = {}
 
-local function flush(self)
-  reports[self.s] = nil
-  local its = ""
-  if #self ~= 0 then
-    local strs = wrapNonNums(self)
-    if #self ~= 0 then
-      table.sort(self)
-      its = utils.prettySortedInts(self)
-      if strs then
-        strs[1] = its
-        its = concat(strs, ',')
-      end
-    else
-      its = concat(strs, ',', 2)
-    end
-  end
-  return self.func(self.obj, self.s .. its)
+
+
+local function flush(report)
+  reports[report.desc] = nil
+  return report.method(report.obj, report.desc .. into_str(report.items))
 end
 
-function M.report(s, it, age, obj, func)
-  local report = reports[s]
+function tui.report(desc, item, age, obj, method)
+  local report = reports[desc]
   if report then
-    insert(report, it)
+    insert(report.items, item)
   else
-    reports[s] = timer.start({it, s = s, timerIv = age, timerFn = flush, obj = obj, func = func})
+    ---@class Report
+    local t = {
+      items = {item}, desc = desc,
+      obj = obj, method = method,
+      timerFn = flush, timerIv = age,
+    }
+    reports[desc] = timer.start(t)
   end
 end
 
-function M.completeLua(line)
+function tui.completeLua(line)
   local nStartPos = string.find(line, "[a-zA-Z0-9_%.:]+$")
   if nStartPos then line = string.sub(line, nStartPos) end
   if #line > 0 then return textutils.complete(line, ez) end
 end
 
-return M
+return tui
