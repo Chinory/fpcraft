@@ -426,4 +426,56 @@ function M.setMetaKVList(t, keyListName, valueListName)
   return setmetatable(t, {__index = {[keyListName] = ks, [valueListName] = vs}})
 end
 
+
+
+---@generic T
+---@param arr T[]
+---@param v T
+function M.push(arr, v)
+  local i = arr[0] + 1
+  arr[0] = i
+  arr[i] = v
+end
+
+---@generic T
+---@param arr T[]
+---@return T|nil
+function M.pop(arr)
+  local i = arr[0]
+  if i > 0 then
+    local v = arr[i]
+    arr[i] = nil
+    arr[0] = i - 1
+    return v
+  end
+end
+
+---@generic T
+---@param arr T[]
+---@return T|nil
+function M.last(arr)
+  local i = arr[0]
+  if i > 0 then
+    return arr[i]
+  end
+end
+
+---@generic T
+---@param arr T[]
+---@return T|nil
+function M.remove(arr, i)
+  local n = arr[0]
+  if i > n then return end
+  local v = arr[n]
+  arr[n] = nil
+  n = n - 1
+  arr[0] = n
+  for j = n, i, -1 do
+    v, arr[j] = arr[j], v
+  end
+  return v
+end
+--------------------------------//
+
+
 return M

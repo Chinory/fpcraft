@@ -648,7 +648,7 @@ function Net.log(self, log)
 end
 
 function Net.report(self, desc, id, age)
-  tui.report(desc, id, age or self.reportAge, self, self.log)
+  tui.report(desc, id, age or self.reportAge, self.log, self)
 end
 
 local function printLogs(self, id)
