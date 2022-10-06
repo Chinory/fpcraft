@@ -1,34 +1,55 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {
-		"editor.tabSize": 2,
-		"Lua.runtime.version": "Lua 5.1",
-		"Lua.diagnostics": {
-			"globals": [
-				"vector",
-				"fs",
-				"textutils",
-				"parallel",
-				"bit32",
-				"peripheral",
-				"os",
-				"read",
-				"term",
-				"write"
-			],
-			"disable": [
-				"lowercase-global"
-			]
-		},
-		"vscode-lua-format.configPath": "vscode-lua-format.yml",
-		"lua-local.interpreter": "lua5.1",
-		"lua.debug.settings.luaVersion": "5.1",
-		"lua.debug.settings.path": [
-			"src\\?.lua"
-		],
-	}
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "Lua.diagnostics.disable": [
+      "unused-local",
+      "lowercase-global",
+      "unused-function",
+      "deprecated"
+    ],
+    "Lua.diagnostics.severity": {
+      "redefined-local": "Warning"
+    },
+    "Lua.diagnostics.globals": [
+      "printError",
+      "sleep",
+      "read",
+      "write",
+      "print",
+      "colours",
+      "colors",
+      "commands",
+      "disk",
+      "fs",
+      "gps",
+      "help",
+      "http",
+      "paintutils",
+      "parallel",
+      "peripheral",
+      "rednet",
+      "redstone",
+      "keys",
+      "settings",
+      "shell",
+      "multishell",
+      "term",
+      "textutils",
+      "turtle",
+      "pocket",
+      "vector",
+      "bit32",
+      "window",
+      "_CC_DEFAULT_SETTINGS",
+      "_HOST",
+      "_VERSION",
+      "_"
+    ],
+    "Lua.runtime.version": "Lua 5.1",
+    "lua.debug.settings.luaVersion": "5.1",
+  }
 }
